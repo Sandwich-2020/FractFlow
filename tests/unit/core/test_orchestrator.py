@@ -2,14 +2,14 @@ import pytest
 import unittest.mock as mock
 import os
 import asyncio
-from src.core.orchestrator import Orchestrator
-from src.models.base_model import BaseModel
-from src.infra.error_handling import ConfigurationError
+from FractalMCP.core.orchestrator import Orchestrator
+from FractalMCP.models.base_model import BaseModel
+from FractalMCP.infra.error_handling import ConfigurationError
 
 class TestOrchestrator:
     """测试协调器"""
     
-    @mock.patch('src.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
     def test_initialization(self, mock_create_model):
         """测试初始化"""
         # 设置模拟模型
@@ -28,7 +28,7 @@ class TestOrchestrator:
         assert orchestrator.model is mock_model
         assert orchestrator.tool_configs == {"test_tool": "/path/to/tool.py"}
     
-    @mock.patch('src.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
     def test_get_model(self, mock_create_model):
         """测试获取模型"""
         # 设置模拟模型
@@ -44,7 +44,7 @@ class TestOrchestrator:
         # 验证模型
         assert model is mock_model
     
-    @mock.patch('src.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
     def test_register_tool_provider_before_start(self, mock_create_model):
         """测试在启动前注册工具提供者"""
         # 设置模拟模型
@@ -60,9 +60,9 @@ class TestOrchestrator:
         # 验证工具配置
         assert orchestrator.tool_configs == {"test_tool": "/path/to/tool.py"}
     
-    @mock.patch('src.core.orchestrator.create_model')
-    @mock.patch('src.mcp.launcher.MCPLauncher')
-    @mock.patch('src.mcp.tool_loader.MCPToolLoader')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.mcp.launcher.MCPLauncher')
+    @mock.patch('FractalMCP.mcp.tool_loader.MCPToolLoader')
     async def test_start(self, mock_tool_loader_class, mock_launcher_class, mock_create_model):
         """测试启动"""
         # 设置模拟对象
@@ -94,8 +94,8 @@ class TestOrchestrator:
         assert orchestrator.tool_loader is mock_tool_loader
         mock_launcher.launch_all.assert_called_once()
     
-    @mock.patch('src.core.orchestrator.create_model')
-    @mock.patch('src.mcp.launcher.MCPLauncher')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.mcp.launcher.MCPLauncher')
     async def test_shutdown(self, mock_launcher_class, mock_create_model):
         """测试关闭"""
         # 设置模拟对象
@@ -123,9 +123,9 @@ class TestOrchestrator:
         # 验证关闭过程
         mock_launcher.shutdown.assert_called_once()
     
-    @mock.patch('src.core.orchestrator.create_model')
-    @mock.patch('src.mcp.launcher.MCPLauncher')
-    @mock.patch('src.mcp.tool_loader.MCPToolLoader')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.mcp.launcher.MCPLauncher')
+    @mock.patch('FractalMCP.mcp.tool_loader.MCPToolLoader')
     async def test_get_available_tools(self, mock_tool_loader_class, mock_launcher_class, mock_create_model):
         """测试获取可用工具"""
         # 设置模拟对象
@@ -166,7 +166,7 @@ class TestOrchestrator:
         mock_tool_loader.load_tools.assert_called_once_with(mock_session)
         assert tools == mock_tools
     
-    @mock.patch('src.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
     async def test_get_available_tools_before_start(self, mock_create_model):
         """测试在启动前获取可用工具"""
         # 设置模拟模型
@@ -183,7 +183,7 @@ class TestOrchestrator:
         # 验证错误消息
         assert "Orchestrator not started" in str(excinfo.value)
     
-    @mock.patch('src.core.orchestrator.create_model')
+    @mock.patch('FractalMCP.core.orchestrator.create_model')
     @mock.patch('os.path.exists')
     def test_register_tools_from_config(self, mock_exists, mock_create_model):
         """测试从配置注册工具"""

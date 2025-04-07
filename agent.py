@@ -16,10 +16,10 @@ from typing import Dict, Optional
 # Add parent directory to path to enable imports
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-from src.core.orchestrator import Orchestrator
-from src.core.query_processor import QueryProcessor
-from src.core.tool_executor import ToolExecutor
-from src.infra.config import ConfigManager
+from FractalMCP.core.orchestrator import Orchestrator
+from FractalMCP.core.query_processor import QueryProcessor
+from FractalMCP.core.tool_executor import ToolExecutor
+from FractalMCP.infra.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 config = ConfigManager()
@@ -78,14 +78,14 @@ async def main():
     tool_configs = {}
     
     # Check if tools exist and add them
-    if os.path.exists("./src/tools/filesystem/operations.py"):
-        tool_configs["filesystem"] = "./src/tools/filesystem/operations.py"
+    if os.path.exists("./tools/filesystem/operations.py"):
+        tool_configs["filesystem"] = "./tools/filesystem/operations.py"
     
-    if os.path.exists("./src/tools/weather/forecast.py"):
-        tool_configs["weather"] = "./src/tools/weather/forecast.py"
+    if os.path.exists("./tools/weather/forecast.py"):
+        tool_configs["weather"] = "./tools/weather/forecast.py"
     
-    if os.path.exists("./src/tools/document/pandoc.py"):
-        tool_configs["pandoc"] = "./src/tools/document/pandoc.py"
+    if os.path.exists("./tools/document/pandoc.py"):
+        tool_configs["pandoc"] = "./tools/document/pandoc.py"
     
     # Run the agent with explicit tool configurations and selected provider
     await run_agent_chat(

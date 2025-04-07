@@ -11,10 +11,10 @@ import logging
 import asyncio
 from typing import Dict, List, Any, Optional
 
-from src.models.factory import create_model
-from src.models.base_model import BaseModel
-from src.infra.config import ConfigManager
-from src.infra.error_handling import AgentError, handle_error, ConfigurationError
+from FractalMCP.models.factory import create_model
+from FractalMCP.models.base_model import BaseModel
+from FractalMCP.infra.config import ConfigManager
+from FractalMCP.infra.error_handling import AgentError, handle_error, ConfigurationError
 
 logger = logging.getLogger(__name__)
 config = ConfigManager()
@@ -117,8 +117,8 @@ class Orchestrator:
     async def start(self) -> None:
         """Initialize and launch the agent system."""
         # Import here to avoid circular imports
-        from src.mcpcore.launcher import MCPLauncher
-        from src.mcpcore.tool_loader import MCPToolLoader
+        from FractalMCP.mcpcore.launcher import MCPLauncher
+        from FractalMCP.mcpcore.tool_loader import MCPToolLoader
         
         # Initialize MCP components
         self.launcher = MCPLauncher()

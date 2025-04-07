@@ -9,7 +9,7 @@ import shutil
 from unittest import mock
 from typing import Dict, Any, List
 
-from src.tools.filesystem.operations import (
+from FractalMCP.tools.filesystem.operations import (
     list_directory_contents,
     create_file,
     delete_file,

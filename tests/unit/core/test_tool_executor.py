@@ -1,13 +1,13 @@
 import pytest
 import unittest.mock as mock
 import asyncio
-from src.core.tool_executor import ToolExecutor
-from src.infra.error_handling import ToolExecutionError
+from FractalMCP.core.tool_executor import ToolExecutor
+from FractalMCP.infra.error_handling import ToolExecutionError
 
 class TestToolExecutor:
     """测试工具执行器"""
     
-    @mock.patch('src.mcp.client_pool')
+    @mock.patch('FractalMCP.mcp.client_pool')
     async def test_execute_tool_success(self, mock_client_pool):
         """测试成功执行工具"""
         # 设置模拟客户端池
@@ -25,7 +25,7 @@ class TestToolExecutor:
         assert result == "Tool execution result"
         mock_client_pool.call.assert_called_once_with("test_tool", {"param": "value"})
     
-    @mock.patch('src.mcp.client_pool')
+    @mock.patch('FractalMCP.mcp.client_pool')
     async def test_execute_tool_failure(self, mock_client_pool):
         """测试工具执行失败"""
         # 设置模拟客户端池抛出异常
@@ -42,8 +42,8 @@ class TestToolExecutor:
         assert "Failed to execute tool" in str(excinfo.value)
         mock_client_pool.call.assert_called_once_with("test_tool", {"param": "value"})
     
-    @mock.patch('src.mcp.client_pool')
-    @mock.patch('src.core.tool_executor.logger')
+    @mock.patch('FractalMCP.mcp.client_pool')
+    @mock.patch('FractalMCP.core.tool_executor.logger')
     async def test_execute_tool_logs_error(self, mock_logger, mock_client_pool):
         """测试工具执行错误日志记录"""
         # 设置模拟客户端池抛出异常
