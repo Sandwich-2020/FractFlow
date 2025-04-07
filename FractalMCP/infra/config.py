@@ -8,14 +8,13 @@ from various sources, including environment variables and config files.
 import os
 import json
 from typing import Any, Dict, Optional
-from dotenv import load_dotenv
 
 class ConfigManager:
     """
     Manages configuration settings for the agent system.
     
-    Loads configuration from environment variables and/or config files,
-    providing a unified interface for accessing configuration values.
+    Provides a unified interface for accessing configuration values,
+    allowing configuration to be set from various sources.
     """
     
     _instance = None
@@ -32,48 +31,108 @@ class ConfigManager:
         if getattr(self, '_initialized', False):
             return
             
-        # Load environment variables from .env file
-        load_dotenv()
-        
-        # Initialize configuration dictionary
-        self._config = {}
-        self._load_from_env()
-        
+        # Initialize with default configuration
+        self._config = self._get_default_config()
         self._initialized = True
     
-    def _load_from_env(self) -> None:
-        """Load configuration from environment variables."""
-        # OpenAI Provider settings
-        self._config['openai'] = {
-            'api_key': os.getenv('COMPLETION_API_KEY'),
-            'base_url': os.getenv('COMPLETION_BASE_URL'),
-            'model': os.getenv('COMPLETION_MODEL_NAME', 'gpt-4'),
-            'tool_calling_model': os.getenv('TOOL_CALLING_MODEL', 'gpt-3.5-turbo'),
+    def _get_default_config(self) -> Dict[str, Any]:
+        """Get default configuration values."""
+        return {
+            'openai': {
+                'api_key': None,
+                'base_url': None,
+                'model': 'gpt-4',
+                'tool_calling_model': 'gpt-3.5-turbo',
+            },
+            'deepseek': {
+                'api_key': None,
+                'base_url': 'https://api.deepseek.com',
+                'model': 'deepseek-reasoner',
+                'tool_calling_model': 'deepseek-chat',
+            },
+            'qwen': {
+                'api_key': None,
+                'base_url': 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+                'model': 'qwen-max',
+                'tool_calling_model': 'qwen-turbo',
+            },
+            'agent': {
+                'max_iterations': 10,
+                'default_system_prompt': '',
+                'provider': 'deepseek',  # Default provider is deepseek
+            }
         }
+    
+    def get_config(self) -> Dict[str, Any]:
+        """
+        Get the complete configuration.
+        
+        Returns:
+            A copy of the current configuration dictionary
+        """
+        # Return a deep copy to avoid modification of internal state
+        return {
+            'openai': dict(self._config.get('openai', {})),
+            'deepseek': dict(self._config.get('deepseek', {})),
+            'qwen': dict(self._config.get('qwen', {})),
+            'agent': dict(self._config.get('agent', {})),
+        }
+    
+    def set_config(self, config: Dict[str, Any]) -> None:
+        """
+        Set multiple configuration values at once.
+        
+        Args:
+            config: Configuration dictionary to set
+        """
+        # Process each section in the config
+        for section, values in config.items():
+            if isinstance(values, dict):
+                for key, value in values.items():
+                    if value is not None:  # Skip None values
+                        self.set(f"{section}.{key}", value)
+            elif values is not None:  # Handle direct values like 'provider'
+                self.set(section, values)
+    
+    def load_from_env(self, env_vars: Optional[Dict[str, str]] = None) -> None:
+        """
+        Load configuration from environment variables.
+        
+        Args:
+            env_vars: Optional dictionary of environment variables.
+                     If not provided, will use os.environ.
+        """
+        # Use provided env_vars or os.environ
+        env = env_vars or os.environ
+        
+        # OpenAI Provider settings
+        self.set('openai.api_key', env.get('COMPLETION_API_KEY'))
+        self.set('openai.base_url', env.get('COMPLETION_BASE_URL'))
+        self.set('openai.model', env.get('COMPLETION_MODEL_NAME', self.get('openai.model')))
+        self.set('openai.tool_calling_model', env.get('TOOL_CALLING_MODEL', self.get('openai.tool_calling_model')))
         
         # DeepSeek Provider settings
-        self._config['deepseek'] = {
-            'api_key': os.getenv('DEEPSEEK_API_KEY'),
-            'base_url': os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
-            'model': os.getenv('DEEPSEEK_MODEL_NAME', 'deepseek-reasoner'),
-            'tool_calling_model': os.getenv('DEEPSEEK_TOOL_CALLING_MODEL', 'deepseek-chat'),
-        }
+        self.set('deepseek.api_key', env.get('DEEPSEEK_API_KEY'))
+        self.set('deepseek.base_url', env.get('DEEPSEEK_BASE_URL', self.get('deepseek.base_url')))
+        self.set('deepseek.model', env.get('DEEPSEEK_MODEL_NAME', self.get('deepseek.model')))
+        self.set('deepseek.tool_calling_model', env.get('DEEPSEEK_TOOL_CALLING_MODEL', self.get('deepseek.tool_calling_model')))
         
         # QWEN Provider settings
-        self._config['qwen'] = {
-            'api_key': os.getenv('QWEN_API_KEY'),
-            'base_url': os.getenv('QWEN_BASE_URL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'),
-            'model': os.getenv('QWEN_MODEL_NAME', 'qwen-max'),
-            'tool_calling_model': os.getenv('QWEN_TOOL_CALLING_MODEL', 'qwen-turbo'),
-        }
-        print(self._config)
+        self.set('qwen.api_key', env.get('QWEN_API_KEY'))
+        self.set('qwen.base_url', env.get('QWEN_BASE_URL', self.get('qwen.base_url')))
+        self.set('qwen.model', env.get('QWEN_MODEL_NAME', self.get('qwen.model')))
+        self.set('qwen.tool_calling_model', env.get('QWEN_TOOL_CALLING_MODEL', self.get('qwen.tool_calling_model')))
         
         # Agent settings
-        self._config['agent'] = {
-            'max_iterations': int(os.getenv('MAX_ITERATIONS', '10')),
-            'default_system_prompt': os.getenv('DEFAULT_SYSTEM_PROMPT', ''),
-            'provider': os.getenv('AI_PROVIDER', 'openai'),  # Default provider
-        }
+        max_iterations = env.get('MAX_ITERATIONS')
+        if max_iterations is not None:
+            try:
+                self.set('agent.max_iterations', int(max_iterations))
+            except ValueError:
+                pass  # Use default if conversion fails
+                
+        self.set('agent.default_system_prompt', env.get('DEFAULT_SYSTEM_PROMPT', self.get('agent.default_system_prompt')))
+        self.set('agent.provider', env.get('AI_PROVIDER', self.get('agent.provider')))
     
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -105,6 +164,10 @@ class ConfigManager:
             key: Dot-separated path to the configuration value (e.g. 'openai.api_key')
             value: The value to set
         """
+        # Skip None values to prevent overriding defaults
+        if value is None:
+            return
+            
         parts = key.split('.')
         config = self._config
         
@@ -126,8 +189,8 @@ class ConfigManager:
             with open(file_path, 'r') as f:
                 file_config = json.load(f)
                 
-            # Merge with existing configuration
-            self._deep_merge(self._config, file_config)
+            # Instead of deep merging manually, use the set_config method
+            self.set_config(file_config)
         except Exception as e:
             print(f"Error loading configuration from {file_path}: {e}")
     
@@ -143,4 +206,5 @@ class ConfigManager:
             if key in target and isinstance(target[key], dict) and isinstance(value, dict):
                 self._deep_merge(target[key], value)
             else:
-                target[key] = value 
+                if value is not None:  # Only set non-None values
+                    target[key] = value 
