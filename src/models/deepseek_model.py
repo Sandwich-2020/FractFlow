@@ -7,6 +7,7 @@ Provides implementation of the BaseModel interface for DeepSeek models.
 import json
 import logging
 import re
+import uuid
 from typing import Dict, List, Any, Optional
 from openai import OpenAI
 
@@ -74,7 +75,7 @@ Output JSON only, no other text."""
             tools: List of available tools
             
         Returns:
-            Tool call result or None if failed
+            Tool call result in OpenAI format or None if failed
         """
         try:
             # Using DeepSeek's JSON output format capability
@@ -93,11 +94,29 @@ Output JSON only, no other text."""
             content = response.choices[0].message.content.strip()
             
             try:
-                tool_call = json.loads(content)
-                if "name" not in tool_call or "arguments" not in tool_call:
+                # Parse the original simple tool call format
+                simple_tool_call = json.loads(content)
+                if "name" not in simple_tool_call or "arguments" not in simple_tool_call:
                     logger.error("Invalid tool call format")
                     return None
-                    
+                
+                # Convert to OpenAI format
+                call_id = f"call_{str(uuid.uuid4())[:8]}"
+                arguments = simple_tool_call["arguments"]
+                # Ensure arguments is a JSON string
+                if not isinstance(arguments, str):
+                    arguments = json.dumps(arguments)
+                
+                # Create tool call in OpenAI format
+                tool_call = {
+                    "id": call_id,
+                    "type": "function",
+                    "function": {
+                        "name": simple_tool_call["name"],
+                        "arguments": arguments
+                    }
+                }
+                
                 return tool_call
             except json.JSONDecodeError as e:
                 logger.error(f"JSON parsing error: {e}")
@@ -213,16 +232,29 @@ Remember: Only use tools when specific information is truly needed. If you can a
             
             if tool_instruction and tools:
                 logger.info(f"Extracted tool instruction: {tool_instruction[:100]}...")
-                # Call the tool
+                # Call the tool - this now returns OpenAI-formatted tool calls
                 tool_call = await self.tool_helper.call_tool(tool_instruction, tools)
-                return {
-                    "choices": [{
-                        "message": {
-                            "content": content,
-                            "tool_calls": [tool_call] if tool_call else None
-                        }
-                    }]
-                }
+                
+                if tool_call:
+                    logger.info(f"Generated tool call: {json.dumps(tool_call)[:100]}...")
+                    return {
+                        "choices": [{
+                            "message": {
+                                "content": content,
+                                "tool_calls": [tool_call]
+                            }
+                        }]
+                    }
+                else:
+                    logger.error("Failed to generate valid tool call")
+                    return {
+                        "choices": [{
+                            "message": {
+                                "content": content,
+                                "tool_calls": None
+                            }
+                        }]
+                    }
             else:
                 # Direct response without tool call
                 return {

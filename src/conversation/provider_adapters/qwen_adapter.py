@@ -5,6 +5,8 @@ Formats conversation history according to QWEN's API requirements.
 """
 
 from typing import List, Dict, Any, Optional
+import json
+import uuid
 from .base_adapter import HistoryAdapter
 
 class QwenHistoryAdapter(HistoryAdapter):
@@ -60,10 +62,36 @@ class QwenHistoryAdapter(HistoryAdapter):
             elif role == "assistant":
                 # Assistant messages with tool calls
                 if "tool_calls" in message and message["tool_calls"]:
+                    # Convert internal tool call format to OpenAI compatible format
+                    openai_tool_calls = []
+                    for tc in message["tool_calls"]:
+                        if isinstance(tc, dict):
+                            # Generate a unique ID if not present
+                            call_id = tc.get("id", f"call_{str(uuid.uuid4())[:8]}")
+                            
+                            # Extract name and arguments
+                            name = tc.get("name", "")
+                            
+                            # If arguments is already a string, use it as is
+                            # Otherwise, convert to JSON string
+                            arguments = tc.get("arguments", {})
+                            if not isinstance(arguments, str):
+                                arguments = json.dumps(arguments)
+                                
+                            # Create OpenAI format tool call
+                            openai_tool_calls.append({
+                                "id": call_id,
+                                "type": "function",
+                                "function": {
+                                    "name": name,
+                                    "arguments": arguments
+                                }
+                            })
+                    
                     formatted_messages.append({
                         "role": "assistant",
                         "content": message["content"],
-                        "tool_calls": message["tool_calls"]
+                        "tool_calls": openai_tool_calls
                     })
                 else:
                     # Regular assistant messages

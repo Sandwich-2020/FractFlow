@@ -146,6 +146,9 @@ class ConversationHistory(BaseConversationHistory):
         Args:
             content: The assistant message content
             tool_calls: Optional list of tool calls made by the assistant
+                        Expected to be in OpenAI format:
+                        [{"id": "call_123", "type": "function", 
+                          "function": {"name": "tool_name", "arguments": '{"param": "value"}'}}]
         """
         message = {
             "role": "assistant",
@@ -153,7 +156,33 @@ class ConversationHistory(BaseConversationHistory):
         }
         
         if tool_calls:
-            message["tool_calls"] = tool_calls
+            # Ensure tool_calls are in OpenAI format
+            formatted_tool_calls = []
+            for tc in tool_calls:
+                if isinstance(tc, dict):
+                    # If already in OpenAI format
+                    if "type" in tc and "function" in tc and "id" in tc:
+                        formatted_tool_calls.append(tc)
+                    # If in legacy format
+                    elif "name" in tc and "arguments" in tc:
+                        import json
+                        import uuid
+                        # Convert arguments to string if it's not already
+                        arguments = tc.get("arguments", {})
+                        if not isinstance(arguments, str):
+                            arguments = json.dumps(arguments)
+                        
+                        formatted_tool_calls.append({
+                            "id": tc.get("id", f"call_{str(uuid.uuid4())[:8]}"),
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": arguments
+                            }
+                        })
+            
+            if formatted_tool_calls:
+                message["tool_calls"] = formatted_tool_calls
             
         self.messages.append(message)
     
@@ -166,14 +195,12 @@ class ConversationHistory(BaseConversationHistory):
             result: Result from the tool
             tool_call_id: Optional ID of the tool call this is responding to
         """
+        # Format for OpenAI compatibility
         message = {
             "role": "tool",
-            "tool_name": tool_name,
-            "content": result
+            "content": result,
+            "tool_call_id": tool_call_id or f"call_{tool_name}"
         }
-        
-        if tool_call_id:
-            message["tool_call_id"] = tool_call_id
             
         self.messages.append(message)
     
@@ -224,12 +251,12 @@ class ConversationHistory(BaseConversationHistory):
             elif role == "assistant":
                 tool_calls = ""
                 if "tool_calls" in message:
-                    tool_names = [tc.get("name", "unknown") for tc in message.get("tool_calls", [])]
+                    tool_names = [tc.get("function", {}).get("name", "unknown") for tc in message.get("tool_calls", [])]
                     tool_calls = f" [TOOLS: {', '.join(tool_names)}]"
                 output.append(f"[{i}] ASSISTANT{tool_calls}: {content_preview}")
             elif role == "tool":
-                tool_name = message.get("tool_name", "unknown")
-                output.append(f"[{i}] TOOL [{tool_name}]: {content_preview}")
+                tool_call_id = message.get("tool_call_id", "unknown")
+                output.append(f"[{i}] TOOL [{tool_call_id}]: {content_preview}")
             else:
                 output.append(f"[{i}] UNKNOWN: {content_preview}")
                 

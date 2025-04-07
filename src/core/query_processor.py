@@ -85,10 +85,26 @@ class QueryProcessor:
                         logger.warning("Received empty tool call")
                         continue
                         
-                    # Extract tool information
-                    tool_name = tool_call.get("name")
-                    function_args = tool_call.get("arguments", {})
-                    tool_call_id = tool_call.get("id", "unknown")
+                    # Extract tool information in OpenAI format
+                    if "function" in tool_call and isinstance(tool_call["function"], dict):
+                        function_info = tool_call["function"]
+                        tool_name = function_info.get("name")
+                        
+                        # Arguments might be a JSON string, so parse it if needed
+                        function_args = function_info.get("arguments", "{}")
+                        if isinstance(function_args, str):
+                            import json
+                            try:
+                                function_args = json.loads(function_args)
+                            except json.JSONDecodeError:
+                                function_args = {}
+                        
+                        tool_call_id = tool_call.get("id", "unknown")
+                    else:
+                        # Legacy format fallback
+                        tool_name = tool_call.get("name")
+                        function_args = tool_call.get("arguments", {})
+                        tool_call_id = tool_call.get("id", "unknown")
                     
                     if not tool_name:
                         logger.warning("Tool call missing 'name' field")
