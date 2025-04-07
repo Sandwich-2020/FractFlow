@@ -2,6 +2,7 @@ import pytest
 import unittest.mock as mock
 from src.models.factory import create_model
 from src.models.deepseek_model import DeepSeekModel
+from src.models.qwen_model import QwenModel
 
 class TestModelFactory:
     """测试模型工厂"""
@@ -12,6 +13,15 @@ class TestModelFactory:
         # 使用明确的提供者参数
         model = create_model(system_prompt="Test prompt", provider="deepseek")
         assert isinstance(model, DeepSeekModel)
+        # 验证OpenAI客户端被正确初始化
+        mock_openai.assert_called()
+    
+    @mock.patch('src.models.qwen_model.OpenAI')
+    def test_create_model_qwen(self, mock_openai):
+        """测试创建QWEN模型"""
+        # 使用明确的提供者参数
+        model = create_model(system_prompt="Test prompt", provider="qwen")
+        assert isinstance(model, QwenModel)
         # 验证OpenAI客户端被正确初始化
         mock_openai.assert_called()
     
@@ -31,14 +41,13 @@ class TestModelFactory:
         # 验证OpenAI客户端被正确初始化
         mock_openai.assert_called()
     
-    @mock.patch('src.models.openai_model.OpenAIModel')
-    def test_create_model_openai(self, mock_openai_model):
-        """测试创建OpenAI模型"""
-        # 由于我们使用了模拟，不需要实际实例化OpenAIModel
-        create_model(system_prompt="Test prompt", provider="openai")
+    def test_create_model_openai_not_implemented(self):
+        """测试OpenAI模型尚未实现"""
+        with pytest.raises(NotImplementedError) as excinfo:
+            create_model(system_prompt="Test prompt", provider="openai")
         
-        # 验证模型被正确创建
-        mock_openai_model.assert_called_once_with("Test prompt")
+        # 验证错误消息
+        assert "OpenAI provider support is not yet implemented" in str(excinfo.value)
     
     def test_create_model_unsupported_provider(self):
         """测试不支持的提供者"""

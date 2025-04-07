@@ -33,7 +33,7 @@ async def run_agent_chat(tool_configs: Optional[Dict[str, str]] = None,
     Args:
         tool_configs: Dictionary of tool configurations
         system_prompt: System prompt to initialize the agent with
-        provider: The AI provider to use (e.g., 'openai', 'deepseek')
+        provider: The AI provider to use (e.g., 'openai', 'deepseek', 'qwen')
     """
     # Create and configure the agent system
     orchestrator = Orchestrator(
@@ -68,7 +68,7 @@ async def main():
     """Main entry point for running the agent chat system."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run the MCP agent with selected AI provider")
-    parser.add_argument("--provider", type=str, choices=["openai", "deepseek"], default="deepseek",
+    parser.add_argument("--provider", type=str, choices=["openai", "deepseek", "qwen"], default="deepseek",
                         help="The AI provider to use")
     parser.add_argument("--system-prompt", type=str, default=None,
                         help="Custom system prompt to initialize the agent")

@@ -59,6 +59,15 @@ class ConfigManager:
             'tool_calling_model': os.getenv('DEEPSEEK_TOOL_CALLING_MODEL', 'deepseek-chat'),
         }
         
+        # QWEN Provider settings
+        self._config['qwen'] = {
+            'api_key': os.getenv('QWEN_API_KEY'),
+            'base_url': os.getenv('QWEN_BASE_URL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'),
+            'model': os.getenv('QWEN_MODEL_NAME', 'qwen-max'),
+            'tool_calling_model': os.getenv('QWEN_TOOL_CALLING_MODEL', 'qwen-turbo'),
+        }
+        print(self._config)
+        
         # Agent settings
         self._config['agent'] = {
             'max_iterations': int(os.getenv('MAX_ITERATIONS', '10')),

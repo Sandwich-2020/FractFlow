@@ -16,7 +16,7 @@ def create_model(system_prompt: Optional[str] = None, provider: Optional[str] = 
     
     Args:
         system_prompt: Optional system prompt to use
-        provider: The AI provider to use (e.g., 'openai', 'deepseek')
+        provider: The AI provider to use (e.g., 'openai', 'deepseek', 'qwen')
         
     Returns:
         An instance of BaseModel
@@ -31,10 +31,12 @@ def create_model(system_prompt: Optional[str] = None, provider: Optional[str] = 
     if provider == 'deepseek':
         from .deepseek_model import DeepSeekModel
         return DeepSeekModel(system_prompt)
+    elif provider == 'qwen':
+        from .qwen_model import QwenModel
+        return QwenModel(system_prompt)
     elif provider == 'openai':
-        # Import here to avoid circular dependencies
-        # Note: OpenAI model not implemented yet - this is a placeholder
-        from .openai_model import OpenAIModel
-        return OpenAIModel(system_prompt)
+        # Note: This part would be properly implemented when OpenAIModel is created
+        # For now, raising an error to indicate it's not implemented yet
+        raise NotImplementedError("OpenAI provider support is not yet implemented")
     else:
         raise ValueError(f"Unsupported AI provider: {provider}") 
