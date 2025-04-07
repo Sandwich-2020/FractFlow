@@ -15,7 +15,7 @@ sys.path.insert(0, project_root)  # <-- 添加这3行
 from dotenv import load_dotenv
 
 # Import the FractalMCP Agent
-from FractalMCP.agent import Agent
+from FractFlow.agent import Agent
 import mcp
 from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("fractal weather")
@@ -37,6 +37,7 @@ async def weather_agent(user_input: str) -> str:
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
+    config['deepseek']['model'] = 'deepseek-chat'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value
     # 4. Set configuration loaded from environment

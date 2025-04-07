@@ -13,6 +13,8 @@ from .core.query_processor import QueryProcessor
 from .core.tool_executor import ToolExecutor
 from .infra.config import ConfigManager
 
+import logging
+logging.basicConfig(level=logging.WARNING, force=True)
 
 class Agent:
     """

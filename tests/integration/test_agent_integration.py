@@ -1,10 +1,10 @@
 import pytest
 import unittest.mock as mock
 import asyncio
-from FractalMCP.core.orchestrator import Orchestrator
-from FractalMCP.core.query_processor import QueryProcessor
-from FractalMCP.core.tool_executor import ToolExecutor
-from FractalMCP.models.base_model import BaseModel
+from FractFlow.core.orchestrator import Orchestrator
+from FractFlow.core.query_processor import QueryProcessor
+from FractFlow.core.tool_executor import ToolExecutor
+from FractFlow.models.base_model import BaseModel
 
 class TestAgentIntegration:
     """测试代理集成"""

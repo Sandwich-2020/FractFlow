@@ -11,8 +11,8 @@ import os
 from dotenv import load_dotenv
 
 # Import the FractalMCP Agent
-from FractalMCP.agent import Agent
-from FractalMCP.infra.config import ConfigManager
+from FractFlow.agent import Agent
+from FractFlow.infra.config import ConfigManager
 
 async def main():
     # 1. Load environment variables 
@@ -45,9 +45,9 @@ async def main():
             if user_input.lower() in ('exit', 'quit', 'bye'):
                 break
                 
-            print("\nAgent: ", end="")
+            print("\n thinking... \n", end="")
             result = await agent.process_query(user_input)
-            print(result)
+            print("Agent: {}".format(result))
     finally:
         # Shut down the agent gracefully
         await agent.shutdown()

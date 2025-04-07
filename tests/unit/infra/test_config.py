@@ -2,7 +2,7 @@ import os
 import json
 import pytest
 import tempfile
-from FractalMCP.infra.config import ConfigManager
+from FractFlow.infra.config import ConfigManager
 
 class TestConfigManager:
     """测试配置管理器"""

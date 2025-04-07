@@ -2,9 +2,9 @@ import pytest
 import unittest.mock as mock
 import os
 import asyncio
-from FractalMCP.core.orchestrator import Orchestrator
-from FractalMCP.models.base_model import BaseModel
-from FractalMCP.infra.error_handling import ConfigurationError
+from FractFlow.core.orchestrator import Orchestrator
+from FractFlow.models.base_model import BaseModel
+from FractFlow.infra.error_handling import ConfigurationError
 
 class TestOrchestrator:
     """测试协调器"""

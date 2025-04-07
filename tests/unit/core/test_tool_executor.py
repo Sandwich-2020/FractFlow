@@ -1,8 +1,8 @@
 import pytest
 import unittest.mock as mock
 import asyncio
-from FractalMCP.core.tool_executor import ToolExecutor
-from FractalMCP.infra.error_handling import ToolExecutionError
+from FractFlow.core.tool_executor import ToolExecutor
+from FractFlow.infra.error_handling import ToolExecutionError
 
 class TestToolExecutor:
     """测试工具执行器"""

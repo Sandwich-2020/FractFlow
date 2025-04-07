@@ -54,8 +54,8 @@ class ConfigManager:
             'qwen': {
                 'api_key': None,
                 'base_url': 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-                'model': 'qwen-max',
-                'tool_calling_model': 'qwen-turbo',
+                'model': 'qwen-plus',
+                'tool_calling_model': 'qwen-plus',
             },
             'agent': {
                 'max_iterations': 10,
