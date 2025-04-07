@@ -22,22 +22,16 @@ class Agent:
     the FractalMCP agent system.
     """
     
-    def __init__(self, system_prompt: Optional[str] = None, provider: Optional[str] = "deepseek"):
+    def __init__(self, system_prompt: Optional[str] = None):
         """
         Initialize the FractalMCP agent.
         
         Args:
             system_prompt: Optional system prompt to initialize the agent
-            provider: Optional AI provider to use (e.g., 'openai', 'deepseek', 'qwen').
-                     Defaults to 'deepseek' to ensure compatibility.
         """
         # Initialize configuration with defaults only
         self.config_manager = ConfigManager()
         
-        # Explicitly set the provider in the config
-        if provider:
-            self.config_manager.set('agent.provider', provider)
-            
         # Set system prompt if provided
         self.system_prompt = system_prompt
         

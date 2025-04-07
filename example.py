@@ -18,30 +18,15 @@ async def main():
     # 1. Load environment variables 
     load_dotenv()
     
-    # 2. Get configuration from environment
-    config_manager = ConfigManager()
-    config_manager.load_from_env()
-    env_config = config_manager.get_config()
-    
     # 3. Create a new agent
-    agent = Agent(provider="deepseek")
-    
-    # 4. Set configuration loaded from environment
-    agent.set_config(env_config)
-    
-    # 5. Get the current configuration for display/verification
+    agent = Agent()  # No need to specify provider here if it's in config
     config = agent.get_config()
-    print("Current configuration:")
-    print(f"Provider: {config['agent']['provider']}")
-    
-    # Check API key
-    if config['deepseek']['api_key']:
-        print("Using DeepSeek API key from environment")
-    else:
-        # Set API key directly if needed
-        # config['deepseek']['api_key'] = 'your_api_key_here'
-        # agent.set_config(config)
-        print("Warning: No DeepSeek API key found in environment variables")
+    config['agent']['provider'] = 'deepseek'
+    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
+    # You can modify configuration values directly
+    config['agent']['max_iterations'] = 100  # Properly set as nested value
+    # 4. Set configuration loaded from environment
+    agent.set_config(config)
     
     # Add tools to the agent
     if os.path.exists("./tools/filesystem/operations.py"):

@@ -7,6 +7,7 @@ from various sources, including environment variables and config files.
 
 import os
 import json
+import copy
 from typing import Any, Dict, Optional
 
 class ConfigManager:
@@ -68,15 +69,10 @@ class ConfigManager:
         Get the complete configuration.
         
         Returns:
-            A copy of the current configuration dictionary
+            A deep copy of the entire configuration dictionary
         """
-        # Return a deep copy to avoid modification of internal state
-        return {
-            'openai': dict(self._config.get('openai', {})),
-            'deepseek': dict(self._config.get('deepseek', {})),
-            'qwen': dict(self._config.get('qwen', {})),
-            'agent': dict(self._config.get('agent', {})),
-        }
+        # Return a deep copy to prevent external modification of the internal state
+        return copy.deepcopy(self._config)
     
     def set_config(self, config: Dict[str, Any]) -> None:
         """
