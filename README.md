@@ -1,18 +1,18 @@
 # FractFlow
 
-FractFlow 是一种分形式智能架构，它将智能拆解为可嵌套的 Agent-Tool 单元，通过递归组合构建出动态演化的分布式心智系统。
+FractFlow is a fractal intelligence architecture that decomposes intelligence into nestable Agent-Tool units, building dynamically evolving distributed cognitive systems through recursive combinations.
 
-## 设计思想
+## Design Philosophy
 
-FractFlow 是一种分形式智能架构，它将智能拆解为可嵌套的 Agent-Tool 单元，通过递归组合构建出动态演化的分布式心智系统。
+FractFlow is a fractal intelligence architecture that decomposes intelligence into nestable Agent-Tool units, building dynamically evolving distributed cognitive systems through recursive combinations.
 
-每个智能体（Agent）不仅具有认知能力，也具备调用其他 Agent 的能力，从而形成一种自指、自组织、自适应的智能流。
+Each agent not only has cognitive capabilities but also the ability to call other agents, forming a self-referential, self-organizing, and self-adaptive intelligence flow.
 
-类似章鱼那样的每根触手都有一个大脑的协作结构，FractFlow 通过模块化智能的组合与协调，实现一种结构可塑、行为可生长的分布式智能形态。
+Similar to an octopus where each tentacle has its own brain in a collaborative structure, FractFlow achieves a structurally malleable and behaviorally evolving form of distributed intelligence through the combination and coordination of modular intelligence.
 
-## 安装
+## Installation
 
-### 方法一：本地安装
+### Method 1: Local Installation
 
 ```bash
 uv venv
@@ -20,34 +20,34 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### 方法二：构建并安装包
+### Method 2: Build and Install Package
 
 ```bash
 python -m build 
 ```
 
-然后你会获得一个 dist 文件夹，可以通过以下命令安装:
+Then you will get a dist folder, which can be installed with the following command:
 
 ```bash
 uv pip install dist/FractFlow-0.1.0-py3-none-any.whl
 ```
 
-## 快速开始
+## Quick Start
 
-首先需要获取语言模型的 API Key。目前支持 DeepSeek 和 Qwen 模型。优先用 DeepSeek 模型, Qwen 还没完整测试。
+First, you need to obtain API keys for language models. Currently, DeepSeek and Qwen models are supported. DeepSeek models are preferred, as Qwen has not been fully tested yet.
 
-### 配置 API Key
+### Configuring API Keys
 
-在根目录下创建一个 .env 文件，并添加如下内容：
+Create a .env file in the root directory and add the following content:
 
 ```bash
 DEEPSEEK_API_KEY=your_api_key
 QWEN_API_KEY=your_api_key
 ```
 
-### 创建和运行一个简单的 Agent
+### Creating and Running a Simple Agent
 
-以下是一个基本的示例，展示如何创建和使用 FractFlow Agent：
+Here is a basic example showing how to create and use a FractFlow Agent:
 
 ```python
 import asyncio
@@ -56,28 +56,28 @@ from dotenv import load_dotenv
 from FractFlow.agent import Agent
 
 async def main():
-    # 加载环境变量
+    # Load environment variables
     load_dotenv()
     
-    # 创建 Agent
+    # Create Agent
     agent = Agent()
     config = agent.get_config()
-    # 可以按需求重写默认配置
+    # Default configurations can be overwritten as needed
     config['agent']['provider'] = 'deepseek'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
     config['agent']['max_iterations'] = 100
     agent.set_config(config)
     
-    # 添加工具
+    # Add tools
     agent.add_tool("./tools/weather/forecast.py")
     
-    # 初始化 Agent
+    # Initialize Agent
     await agent.initialize()
     
     try:
-        # 处理用户查询
-        result = await agent.process_query("我想知道北京的天气预报")
+        # Process user query
+        result = await agent.process_query("I want to know the weather forecast for Beijing")
         print(f"Agent: {result}")
     finally:
         await agent.shutdown()
@@ -86,28 +86,28 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## 如何编写工具
+## How to Write Tools
 
-FractFlow 使用 MCP 协议来定义工具。工具可以是单独的 Python 文件，按照 MCP server 的协议编写。
+FractFlow uses the MCP protocol to define tools. Tools can be separate Python files written according to the MCP server protocol.
 
-### 工具示例
+### Tool Example
 
-以下是一个天气预报工具的示例（参考 `tools/forecast.py`）：
+Here is an example of a weather forecast tool (refer to `tools/forecast.py`):
 
 ```python
 from typing import Any, Dict
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-# 初始化 FastMCP 服务器
+# Initialize FastMCP server
 mcp = FastMCP("weather")
 
-# API 常量
+# API constants
 NWS_API_BASE = "https://api.weather.gov"
 USER_AGENT = "weather-app/1.0"
 
 async def make_nws_request(url: str) -> dict[str, Any] | None:
-    """向 NWS API 发起请求并进行错误处理"""
+    """Make a request to the NWS API with error handling"""
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/geo+json"
@@ -122,56 +122,56 @@ async def make_nws_request(url: str) -> dict[str, Any] | None:
 
 @mcp.tool()
 async def get_forecast(latitude: float, longitude: float) -> str:
-    """获取指定位置的天气预报
+    """Get weather forecast for a specific location
     
     Args:
-        latitude: 位置的纬度
-        longitude: 位置的经度
+        latitude: The latitude of the location
+        longitude: The longitude of the location
     """
-    # 获取预报网格端点
+    # Get forecast grid endpoint
     points_url = f"{NWS_API_BASE}/points/{latitude},{longitude}"
     points_data = await make_nws_request(points_url)
     
     if not points_data:
-        return "无法获取此位置的预报数据。"
+        return "Unable to retrieve forecast data for this location."
     
-    # 从点响应中获取预报 URL
+    # Get forecast URL from points response
     forecast_url = points_data["properties"]["forecast"]
     forecast_data = await make_nws_request(forecast_url)
     
     if not forecast_data:
-        return "无法获取详细预报。"
+        return "Unable to retrieve detailed forecast."
     
-    # 将周期格式化为可读的预报
+    # Format periods into readable forecasts
     periods = forecast_data["properties"]["periods"]
     forecasts = []
-    for period in periods[:5]:  # 只显示接下来的 5 个时段
+    for period in periods[:5]:  # Only show the next 5 periods
         forecast = f"""
 {period['name']}:
-温度: {period['temperature']}°{period['temperatureUnit']}
-风: {period['windSpeed']} {period['windDirection']}
-预报: {period['detailedForecast']}
+Temperature: {period['temperature']}°{period['temperatureUnit']}
+Wind: {period['windSpeed']} {period['windDirection']}
+Forecast: {period['detailedForecast']}
 """
         forecasts.append(forecast)
     
     return "\n---\n".join(forecasts)
 
 if __name__ == "__main__":
-    # 初始化并运行服务器
+    # Initialize and run the server
     mcp.run(transport='stdio')
 ```
 
-### 工具开发规范
+### Tool Development Standards
 
-1. 使用 `FastMCP` 类创建工具服务器
-2. 使用 `@mcp.tool()` 装饰器定义工具函数
-3. 提供清晰的函数文档和参数说明
-4. 工具函数应该是异步的 (`async def`)
-5. 在 `if __name__ == "__main__":` 块中运行服务器
+1. Use the `FastMCP` class to create a tool server
+2. Use the `@mcp.tool()` decorator to define tool functions
+3. Provide clear function documentation and parameter descriptions
+4. Tool functions should be asynchronous (`async def`)
+5. Run the server in the `if __name__ == "__main__":` block
 
-## 使用 FractFlow 库
+## Using the FractFlow Library
 
-以下是如何使用 FractFlow 库的更完整示例（参考 `run_simple_example.py`）：
+Here is a more complete example of how to use the FractFlow library (refer to `run_simple_example.py`):
 
 ```python
 import asyncio
@@ -180,10 +180,10 @@ from dotenv import load_dotenv
 from FractFlow.agent import Agent
 
 async def main():
-    # 加载环境变量
+    # Load environment variables
     load_dotenv()
     
-    # 创建 Agent
+    # Create Agent
     agent = Agent()
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
@@ -193,17 +193,17 @@ async def main():
     config['agent']['max_iterations'] = 100
     agent.set_config(config)
     
-    # 添加工具
+    # Add tools
     if os.path.exists("./tools/weather/forecast.py"):
         agent.add_tool("./tools/weather/forecast.py")
         print("Added weather tool")
     
-    # 初始化 Agent
+    # Initialize Agent
     print("Initializing agent...")
     await agent.initialize()
     
     try:
-        # 交互式聊天循环
+        # Interactive chat loop
         print("Agent chat started. Type 'exit', 'quit', or 'bye' to end the conversation.")
         while True:
             user_input = input("\nYou: ")
@@ -214,7 +214,7 @@ async def main():
             result = await agent.process_query(user_input)
             print("Agent: {}".format(result))
     finally:
-        # 优雅地关闭 Agent
+        # Gracefully shut down the Agent
         await agent.shutdown()
         print("\nAgent chat ended.")
 
@@ -222,19 +222,19 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### 主要 API 方法
+### Main API Methods
 
-- `agent = Agent()` - 创建一个新的 Agent 实例
-- `config = agent.get_config()` - 获取当前配置
-- `agent.set_config(config)` - 设置配置
-- `agent.add_tool(tool_path)` - 添加工具到 Agent
-- `await agent.initialize()` - 初始化 Agent
-- `result = await agent.process_query(user_input)` - 处理用户查询
-- `await agent.shutdown()` - 关闭 Agent
+- `agent = Agent()` - Create a new Agent instance
+- `config = agent.get_config()` - Get current configuration
+- `agent.set_config(config)` - Set configuration
+- `agent.add_tool(tool_path)` - Add a tool to the Agent
+- `await agent.initialize()` - Initialize the Agent
+- `result = await agent.process_query(user_input)` - Process user query
+- `await agent.shutdown()` - Shut down the Agent
 
-## 高级用法：Agent 作为工具
+## Advanced Usage: Agent as a Tool
 
-FractFlow 的一个强大特性是 Agent 本身可以作为更智能的工具被其他 Agent 使用，形成一种分形架构。以下是一个示例（参考 `fractal_weather_tool.py`）：
+A powerful feature of FractFlow is that Agents themselves can be used as more intelligent tools by other Agents, forming a fractal architecture. Here's an example (refer to `fractal_weather_tool.py`):
 
 ```python
 import asyncio
@@ -249,16 +249,16 @@ mcp = FastMCP("fractal weather")
 @mcp.tool()
 async def weather_agent(user_input: str) -> str:
     """
-    这个函数接收用户输入并返回天气预报。
+    This function takes user input and returns weather forecasts.
     Args:
-        user_input: 用户的输入
+        user_input: User's input
     Returns:
-        天气预报结果
+        Weather forecast results
     """
-    # 加载环境变量
+    # Load environment variables
     load_dotenv()
     
-    # 创建 Agent
+    # Create Agent
     agent = Agent()
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
@@ -267,37 +267,36 @@ async def weather_agent(user_input: str) -> str:
     config['agent']['max_iterations'] = 100
     agent.set_config(config)
     
-    # 添加工具
+    # Add tools
     if os.path.exists("./tools/weather/forecast.py"):
         agent.add_tool("./tools/weather/forecast.py")
         print("Added weather tool")
     
-    # 初始化 Agent
+    # Initialize Agent
     await agent.initialize()
     
     try:
-        # 处理用户查询
+        # Process user query
         result = await agent.process_query(user_input)
     finally:
-        # 关闭 Agent
+        # Shut down Agent
         await agent.shutdown()
     
     return result
 
 if __name__ == "__main__":
-    # 初始化并运行服务器
+    # Initialize and run the server
     mcp.run(transport='stdio')
 ```
 
-这种方法允许你创建一个专门的 Agent 工具，它可以被其他 Agent 调用，从而形成分形智能结构。高级 Agent 可以将任务分解给专门的 Agent，每个专门的 Agent 又可以使用自己的工具集。
+This approach allows you to create a specialized Agent tool that can be called by other Agents, forming a fractal intelligence structure. Advanced Agents can delegate tasks to specialized Agents, and each specialized Agent can use its own set of tools.
 
+## Future Work
 
-## 未来工作
+The ultimate goal of FractFlow is to build a fractal intelligence system, a dynamic flow of intelligence composed of Agents and tools, where each part is both an individual and can be nested to build higher-order intelligence structures.
 
-FractFlow 的终极目标，是构建一个分形智能体系，一个由 Agent 和工具组成的动态智能流，每个部分既是个体，又能嵌套构建更高阶的智能结构。
+Currently, FractFlow is still in the development stage, and I will continue to update it. For those involved in internal testing, you need to:
 
-当前 FractFlow 还处于开发阶段，我会持续更新。对于内测的同学，需要
-
-1. 尝试通过添加tools 以验证其功能，目前版本还未经过充分测试，有问题是正常的，请积极反馈问题（直接微信交流）
-2. 项目未开源前先不要分享给其他人
-3. 这个项目会投稿 ICLR 2025，如果希望参与，请及时告诉我
+1. Try adding tools to verify its functionality. The current version has not been fully tested, so problems are normal. Please actively provide feedback (direct communication via WeChat).
+2. Do not share with others before the project is open-source.
+3. This project will be submitted to ICLR 2025. If you wish to participate, please let me know promptly.
