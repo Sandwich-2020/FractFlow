@@ -235,26 +235,33 @@ Remember: Only use tools when specific information is truly needed. If you can a
             else:
                 reasoning_content = None
             # Check if the response contains a tool instruction
-            tool_instruction = self._extract_tool_instruction(content)
+            tool_instructions = self._extract_tool_instructions(content)
             
-            if tool_instruction and tools:
-                logger.info(f"Extracted tool instruction: {tool_instruction}...")
-                # Call the tool - this now returns OpenAI-formatted tool calls
-                tool_call = await self.tool_helper.call_tool(tool_instruction, tools)
+            if tool_instructions and tools:
+                logger.info(f"Extracted {len(tool_instructions)} tool instructions")
                 
-                if tool_call:
-                    logger.info(f"Generated tool call: {json.dumps(tool_call)}...")
+                # Process all tool instructions and generate multiple tool calls
+                tool_calls = []
+                for instruction in tool_instructions:
+                    logger.info(f"Processing tool instruction: {instruction[:100]}...")
+                    # Call the tool - this returns OpenAI-formatted tool calls
+                    tool_call = await self.tool_helper.call_tool(instruction, tools)
+                    if tool_call:
+                        tool_calls.append(tool_call)
+                        logger.info(f"Generated tool call: {json.dumps(tool_call)[:100]}...")
+                
+                if tool_calls:
                     return {
                         "choices": [{
                             "message": {
                                 "content": content,
-                                "tool_calls": [tool_call],
+                                "tool_calls": tool_calls,
                                 "reasoning_content": reasoning_content
                             }
                         }]
                     }
                 else:
-                    logger.error("Failed to generate valid tool call")
+                    logger.error("Failed to generate valid tool calls")
                     return {
                         "choices": [{
                             "message": {
@@ -281,9 +288,23 @@ Remember: Only use tools when specific information is truly needed. If you can a
             logger.error(f"Error in user interaction: {error}")
             return create_error_response(error)
 
+    def _extract_tool_instructions(self, content: str) -> List[str]:
+        """
+        Extract all tool calling instructions from content.
+        
+        Args:
+            content: Content to extract tool instructions from
+            
+        Returns:
+            List of extracted tool instructions
+        """
+        pattern = r"TOOL_INSTRUCTION\n(.*?)\nEND_INSTRUCTION"
+        matches = re.findall(pattern, content, re.DOTALL)
+        return [match.strip() for match in matches] if matches else []
+
     def _extract_tool_instruction(self, content: str) -> Optional[str]:
         """
-        Extract tool calling instruction from content.
+        Extract first tool calling instruction from content (legacy support).
         
         Args:
             content: Content to extract tool instruction from

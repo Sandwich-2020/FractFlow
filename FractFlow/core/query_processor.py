@@ -93,64 +93,59 @@ class QueryProcessor:
                     model.history.log_history(logging.INFO, f"Interation History（Number of Iteration:{iteration+1}）")
                     return content
                 
-                # Only process the FIRST tool call in each iteration
-                # This ensures we handle one tool at a time for proper context building
+                # Process all tool calls in each iteration
                 if tool_calls and len(tool_calls) > 0:
-                    tool_call = tool_calls[0]
+                    # Store the assistant message first with all tool calls
+                    model.add_assistant_message(content, tool_calls)
                     
-                    # Skip None values
-                    if tool_call is None:
-                        logger.warning("Received empty tool call")
-                        continue
-                        
-                    # Extract tool information in OpenAI format
-                    if "function" in tool_call and isinstance(tool_call["function"], dict):
-                        function_info = tool_call["function"]
-                        tool_name = function_info.get("name")
-                        
-                        # Arguments might be a JSON string, so parse it if needed
-                        function_args = function_info.get("arguments", "{}")
-                        if isinstance(function_args, str):
-                            import json
-                            try:
-                                function_args = json.loads(function_args)
-                            except json.JSONDecodeError:
-                                function_args = {}
-                        
-                        tool_call_id = tool_call.get("id", "unknown")
-                    else:
-                        # Legacy format fallback
-                        tool_name = tool_call.get("name")
-                        function_args = tool_call.get("arguments", {})
-                        tool_call_id = tool_call.get("id", "unknown")
-                    
-                    if not tool_name:
-                        logger.warning("Tool call missing 'name' field")
-                        continue
-                    
-                    logger.info("Calling tool", {"name": tool_name, "args": function_args})
-                    
-                    # Store the assistant message first
-                    model.add_assistant_message(content, [tool_call])
-                    
-                    # Call the tool
-                    try:
-                        result = await self.tool_executor.execute_tool(tool_name, function_args)
-                        # Add truncated tool execution result log
-                        truncated_result = str(result)[:200] + ("..." if len(str(result)) > 200 else "")
-                        logger.info("Tool execution result", {"tool": tool_name, "result": truncated_result})
-                        # Add result to conversation history
-                        model.add_tool_result(tool_name, result, tool_call_id)
-                        
-                        # Log remaining tool calls for debugging
-                        if len(tool_calls) > 1:
-                            logger.info("Deferring additional tool calls", {"count": len(tool_calls)-1})
+                    # Process each tool call
+                    for tool_call in tool_calls:
+                        # Skip None values
+                        if tool_call is None:
+                            logger.warning("Received empty tool call")
+                            continue
                             
-                    except Exception as e:
-                        error = handle_error(e, {"tool_name": tool_name, "args": function_args})
-                        error_message = f"Error calling tool {tool_name}: {str(error)}"
-                        logger.error(error_message, {"tool": tool_name, "error": str(error)})
-                        model.add_tool_result(tool_name, error_message, tool_call_id)
+                        # Extract tool information in OpenAI format
+                        if "function" in tool_call and isinstance(tool_call["function"], dict):
+                            function_info = tool_call["function"]
+                            tool_name = function_info.get("name")
+                            
+                            # Arguments might be a JSON string, so parse it if needed
+                            function_args = function_info.get("arguments", "{}")
+                            if isinstance(function_args, str):
+                                import json
+                                try:
+                                    function_args = json.loads(function_args)
+                                except json.JSONDecodeError:
+                                    function_args = {}
+                            
+                            tool_call_id = tool_call.get("id", "unknown")
+                        else:
+                            # Legacy format fallback
+                            tool_name = tool_call.get("name")
+                            function_args = tool_call.get("arguments", {})
+                            tool_call_id = tool_call.get("id", "unknown")
+                        
+                        if not tool_name:
+                            logger.warning("Tool call missing 'name' field")
+                            continue
+                        
+                        logger.info("Calling tool", {"name": tool_name, "args": function_args})
+                        
+                        # Call the tool
+                        try:
+                            result = await self.tool_executor.execute_tool(tool_name, function_args)
+                            # Add truncated tool execution result log
+                            truncated_result = str(result)[:200] + ("..." if len(str(result)) > 200 else "")
+                            logger.info("Tool execution result", {"tool": tool_name, "result": truncated_result})
+                            # Add result to conversation history
+                            model.add_tool_result(tool_name, result, tool_call_id)
+                                
+                        except Exception as e:
+                            error = handle_error(e, {"tool_name": tool_name, "args": function_args})
+                            error_message = f"Error calling tool {tool_name}: {str(error)}"
+                            logger.error(error_message, {"tool": tool_name, "error": str(error)})
+                            model.add_tool_result(tool_name, error_message, tool_call_id)
             
             # If we reached the maximum iterations, return a fallback response
             logger.warning("Reached maximum iterations", {"max": self.max_iterations})
