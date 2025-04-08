@@ -2,7 +2,7 @@
 query_processor.py
 Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
 Date: 2025-04-08
-Description: Processes user queries, manages model execution, and handles the ReAct loop with tool calls.
+Description: Processes user queries, manages model execution, and handles the loop with tool calls.
 License: MIT License
 """
 
@@ -26,10 +26,10 @@ config = ConfigManager()
 
 class QueryProcessor:
     """
-    Processes user queries and manages the ReAct loop.
+    Processes user queries and manages the loop.
     
     Handles the interaction between the user's query, the model, and tools,
-    implementing the core ReAct-style loop.
+    implementing the core loop.
     """
     
     def __init__(self, orchestrator: Orchestrator, tool_executor: ToolExecutor):
@@ -46,7 +46,7 @@ class QueryProcessor:
     
     async def process_query(self, user_query: str) -> str:
         """
-        Process a user query through the ReAct loop.
+        Process a user query through the loop.
         
         Args:
             user_query: The user's input query
@@ -67,7 +67,7 @@ class QueryProcessor:
             # Initial content placeholder
             content = ""
             
-            # Main agent loop (ReAct)
+            # Main agent loop
             for iteration in range(self.max_iterations):
                 logger.info("Starting iteration", {"current": iteration+1, "max": self.max_iterations})
                 
@@ -75,7 +75,7 @@ class QueryProcessor:
                 response = await model.execute(tools)
                 
                 message = response["choices"][0]["message"]
-                logger.info("REACT Message received", {"message_preview": str(message)})
+                logger.info("MAIN LOOP Message received", {"message_preview": str(message)})
                 tool_calls = message.get("tool_calls", [])
                 content = message.get("content", "Sorry, I couldn't understand your request.")
                 
