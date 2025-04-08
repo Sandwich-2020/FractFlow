@@ -37,8 +37,8 @@ async def main():
     agent.set_config(config)
     
     
-    if os.path.exists("./tools/fractal_weather/fractal_weather_tool.py"):
-        agent.add_tool("./tools/fractal_weather/fractal_weather_tool.py")
+    if os.path.exists("./tools/fractal_weather_tool.py"):
+        agent.add_tool("./tools/fractal_weather_tool.py")
         print("Added fractal_weather tool")
     
     # Initialize the agent (starts up the tool servers)
