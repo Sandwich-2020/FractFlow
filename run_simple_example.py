@@ -39,10 +39,6 @@ async def main():
     agent.set_config(config)
     
     # Add tools to the agent
-    if os.path.exists("./tools/filesystem/operations.py"):
-        agent.add_tool("./tools/filesystem/operations.py")
-        print("Added filesystem tool")
-    
     if os.path.exists("./tools/weather/forecast.py"):
         agent.add_tool("./tools/weather/forecast.py")
         print("Added weather tool")
