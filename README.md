@@ -299,4 +299,4 @@ Currently, FractFlow is still in the development stage, and I will continue to u
 
 1. Try adding tools to verify its functionality. The current version has not been fully tested, so problems are normal. Please actively provide feedback (direct communication via WeChat).
 2. Do not share with others before the project is open-source.
-3. This project will be submitted to ICLR 2025. If you wish to participate, please let me know promptly.
+3. This project will be submitted to ICLR 2026. If you wish to participate, please let me know promptly.

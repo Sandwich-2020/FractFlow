@@ -6,6 +6,7 @@ Formats conversation history according to DeepSeek's API requirements.
 
 from typing import List, Dict, Any, Optional
 from .base_adapter import HistoryAdapter
+import json
 
 class DeepSeekHistoryAdapter(HistoryAdapter):
     """
@@ -88,22 +89,46 @@ class DeepSeekHistoryAdapter(HistoryAdapter):
             Formatted string describing available tools
         """
         descriptions = []
+        
+        # Add a concise guide for tool calling at the beginning
+        format_explanation = """To call these tools, include a JSON object with the tool name and arguments somewhere in your response.
+Examples: {"name": "tool_name", "arguments": {...}} or {"tool_call": {"name": "tool_name", "arguments": {...}}}
+"""
+        descriptions.append(format_explanation)
+        
+        # Generate description for each tool
         for tool in tools:
             name = tool.get("function", {}).get("name")
             description = tool.get("function", {}).get("description")
             params = tool.get("function", {}).get("parameters", {}).get("properties", {})
+            required_params = tool.get("function", {}).get("parameters", {}).get("required", [])
             
             if not name or not description:
                 continue
                 
+            # Format parameter descriptions
             param_desc = []
             for param_name, param_info in params.items():
                 param_type = param_info.get("type", "any")
                 param_description = param_info.get("description", "")
-                param_desc.append(f"  - {param_name} ({param_type}): {param_description}")
+                required = "required" if param_name in required_params else "optional"
+                param_desc.append(f"  - {param_name} ({param_type}, {required}): {param_description}")
                 
             param_text = "\n".join(param_desc) if param_desc else "  No parameters"
-            descriptions.append(f"- {name}: {description}\n  Parameters:\n{param_text}")
+            
+            # Create a simple example with actual parameter names
+            example_args = {}
+            for param_name in params:
+                if param_name in required_params:
+                    if params[param_name].get("type") == "number" or params[param_name].get("type") == "integer":
+                        example_args[param_name] = 0
+                    else:
+                        example_args[param_name] = f"<{param_name}>"
+            
+            example = f"""Example: {{"name": "{name}", "arguments": {json.dumps(example_args)}}}"""
+                
+            # Combine all into the tool description
+            descriptions.append(f"Tool: {name}\nDescription: {description}\nParameters:\n{param_text}\n{example}")
             
         return "\n\n".join(descriptions)
     
