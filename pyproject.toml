@@ -35,8 +35,8 @@ dependencies = [
     "tenacity",
     "jinja2",
     "orjson",
+    "mcp"
 ]
 
-
-[tool.setuptools]
-packages = ["FractFlow"]
+[tool.setuptools.packages.find]
+include = ["FractFlow*"]
