@@ -55,11 +55,11 @@ def handle_error(error: Exception, context: Optional[Dict[str, Any]] = None) -> 
     Returns:
         An appropriate AgentError instance
     """
-    # 错误信息应当保持高亮显示以引起注意
+    # Error messages should remain highlighted to draw attention
     if context:
-        logger.error(f"{COLORS['BOLD']}错误发生{COLORS['RESET']}", {"错误信息": str(error), "上下文": context})
+        logger.error(f"{COLORS['BOLD']}Error occurred{COLORS['RESET']}", {"Error message": str(error), "Context": context})
     else:
-        logger.error(f"{COLORS['BOLD']}错误发生{COLORS['RESET']}", {"错误信息": str(error)})
+        logger.error(f"{COLORS['BOLD']}Error occurred{COLORS['RESET']}", {"Error message": str(error)})
     
     # Include stack trace for debugging
     logger.debug(traceback.format_exc())

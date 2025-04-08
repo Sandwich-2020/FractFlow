@@ -99,13 +99,13 @@ class BaseConversationHistory(ABC):
         pass
     
     @abstractmethod
-    def log_history(self, level: int = logging.INFO, prefix: str = "对话历史") -> None:
+    def log_history(self, level: int = logging.INFO, prefix: str = "Conversation History") -> None:
         """
-        使用日志系统记录整个对话历史。
+        Log the entire conversation history using the logging system.
         
         Args:
-            level: 日志级别，默认INFO
-            prefix: 日志前缀文本
+            level: Logging level, default is INFO
+            prefix: Prefix text for the log entry
         """
         pass
 
@@ -278,13 +278,13 @@ class ConversationHistory(BaseConversationHistory):
         output.append("========================================")
         return "\n".join(output)
     
-    def log_history(self, level: int = logging.INFO, prefix: str = "对话历史") -> None:
+    def log_history(self, level: int = logging.INFO, prefix: str = "Conversation History") -> None:
         """
-        使用日志系统记录整个对话历史。
+        Log the entire conversation history using the logging system.
         
         Args:
-            level: 日志级别，默认INFO
-            prefix: 日志前缀文本
+            level: Logging level, default is INFO
+            prefix: Prefix text for the log entry
         """
         history_output = self.format_debug_output()
         

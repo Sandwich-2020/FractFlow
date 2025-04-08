@@ -1,4 +1,12 @@
 """
+query_processor.py
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-08
+Description: Processes user queries, manages model execution, and handles the ReAct loop with tool calls.
+License: MIT License
+"""
+
+"""
 Query processor.
 
 Handles the processing of user queries, manages model execution,
@@ -71,7 +79,7 @@ class QueryProcessor:
                 tool_calls = message.get("tool_calls", [])
                 content = message.get("content", "Sorry, I couldn't understand your request.")
                 
-                # 记录推理内容（如果存在）
+                # Log reasoning content (if exists)
                 reasoning_content = message.get("reasoning_content")
                 if reasoning_content:
                     truncated_reasoning = str(reasoning_content)[:500] + ("..." if len(str(reasoning_content)) > 500 else "")
@@ -79,9 +87,9 @@ class QueryProcessor:
                 
                 # If there are no tool calls, return final answer
                 if not tool_calls:
-                    # 将最终回答添加到历史记录中
+                    # Add final answer to conversation history
                     model.add_assistant_message(content)
-                    # 记录最终结果时的完整对话历史
+                    # Log complete conversation history for final result
                     model.history.log_history(logging.INFO, f"Interation History（Number of Iteration:{iteration+1}）")
                     return content
                 
@@ -128,7 +136,7 @@ class QueryProcessor:
                     # Call the tool
                     try:
                         result = await self.tool_executor.execute_tool(tool_name, function_args)
-                        # 添加截断的工具执行结果日志
+                        # Add truncated tool execution result log
                         truncated_result = str(result)[:200] + ("..." if len(str(result)) > 200 else "")
                         logger.info("Tool execution result", {"tool": tool_name, "result": truncated_result})
                         # Add result to conversation history
@@ -146,16 +154,16 @@ class QueryProcessor:
             
             # If we reached the maximum iterations, return a fallback response
             logger.warning("Reached maximum iterations", {"max": self.max_iterations})
-            # 记录达到最大迭代次数时的完整对话历史
+            # Log complete conversation history when max iterations reached
             final_content = "I spent too much time processing your request. Here's what I've gathered so far: " + content
             model.add_assistant_message(final_content)
-            model.history.log_history(logging.WARNING, "达到最大迭代次数")
+            model.history.log_history(logging.WARNING, "Maximum iteration count reached")
             return final_content
         
         except Exception as e:
             error = handle_error(e, {"user_query": user_query})
             logger.error("Error in process_query", {"error": str(error)})
-            # 如果模型已初始化，记录错误时的对话历史
+            # If model is initialized, log conversation history when error occurs
             if 'model' in locals() and hasattr(model, 'history'):
                 model.history.log_history(logging.ERROR, "ERROR in process_query")
             return f"Sorry, there was a technical problem processing your request. Error: {str(error)}" 

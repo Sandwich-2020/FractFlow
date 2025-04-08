@@ -11,7 +11,7 @@ import json
 import sys
 from typing import Any, Dict, Optional, Union
 
-# ANSI颜色代码
+# ANSI color codes
 COLORS = {
     'RESET': '\033[0m',
     'BLACK': '\033[30m',
@@ -24,7 +24,7 @@ COLORS = {
     'WHITE': '\033[37m',
     'BOLD': '\033[1m',
     'UNDERLINE': '\033[4m',
-    # 添加暗色系列
+    # Add dark color series
     'DARK_GRAY': '\033[90m',
     'DARK_RED': '\033[31;2m',
     'DARK_GREEN': '\033[32;2m',
@@ -35,7 +35,7 @@ COLORS = {
     'DARK_WHITE': '\033[37;2m',
 }
 
-# 为日志级别设置颜色
+# Set colors for log levels
 LEVEL_COLORS = {
     'DEBUG': COLORS['BLUE'],
     'INFO': COLORS['GREEN'],
@@ -44,38 +44,38 @@ LEVEL_COLORS = {
     'CRITICAL': COLORS['MAGENTA'] + COLORS['BOLD']
 }
 
-# 定义消息内容的颜色配置
+# Define color configuration for message content
 MESSAGE_COLORS = {
     'DEBUG': COLORS['DARK_BLUE'],
-    'INFO': COLORS['DARK_GREEN'],  # 让INFO级别消息变暗
+    'INFO': COLORS['DARK_GREEN'],  # Make INFO level messages darker
     'WARNING': COLORS['DARK_YELLOW'],
-    'ERROR': COLORS['RED'],  # 错误保持显眼
-    'CRITICAL': COLORS['MAGENTA'],  # 关键错误保持显眼
+    'ERROR': COLORS['RED'],  # Keep errors visible
+    'CRITICAL': COLORS['MAGENTA'],  # Keep critical errors visible
 }
 
 class ColorFormatter(logging.Formatter):
-    """格式化器，为日志添加颜色"""
+    """Formatter that adds color to logs"""
     
     def format(self, record):
-        # 保存原始级别名和消息
+        # Save original level name and message
         levelname = record.levelname
         message = record.getMessage()
         
-        # 如果不在终端环境中运行，不添加颜色
+        # Don't add color if not running in a terminal environment
         if sys.stdout.isatty():
-            # 为级别名添加颜色
+            # Add color to level name
             level_color = LEVEL_COLORS.get(levelname, COLORS['RESET'])
             record.levelname = f"{level_color}{levelname}{COLORS['RESET']}"
             
-            # 为消息内容添加颜色（降低亮度）
+            # Add color to message content (reduced brightness)
             message_color = MESSAGE_COLORS.get(levelname, COLORS['RESET'])
             
-            # 替换原始消息为带颜色的版本
+            # Replace original message with colored version
             record.msg = f"{message_color}{record.msg}{COLORS['RESET']}"
             
         formatted = super().format(record)
         
-        # 恢复原始级别名和消息，避免影响其他格式化器
+        # Restore original level name and message to avoid affecting other formatters
         record.levelname = levelname
         record.msg = record.msg.replace(f"{message_color}", "").replace(f"{COLORS['RESET']}", "")
         return formatted
@@ -156,9 +156,9 @@ class LoggerWrapper:
     def _format_data(self, data: Union[Dict[str, Any], str]) -> str:
         """Format dictionary data for readable output."""
         if isinstance(data, dict):
-            # 为键值对添加颜色
+            # Add color to key-value pairs
             if self.use_colors:
-                # 使用青色突出显示键名，并让值变暗
+                # Use cyan to highlight key names, and make values darker
                 return " | ".join(f"{COLORS['CYAN']}{k.upper()}{COLORS['RESET']}={COLORS['DARK_WHITE']}{self._format_value(v)}{COLORS['RESET']}" for k, v in data.items())
             else:
                 return " | ".join(f"{k.upper()}={self._format_value(v)}" for k, v in data.items())
@@ -170,16 +170,16 @@ class LoggerWrapper:
             return json.dumps(value, ensure_ascii=False)
         elif isinstance(value, (list, tuple)):
             if len(value) > 3:
-                # 仍然保持列表项的简化表示
+                # Still maintain simplified representation of list items
                 return f"[{len(value)} items]"
             return str(value)
-        # 不再截断长字符串
+        # No longer truncate long strings
         # elif isinstance(value, str) and len(value) > 100:
         #     return f"{value[:100]}..."
         return str(value)
     
     def _get_level_color(self, level_name: str) -> str:
-        """获取日志级别对应的颜色"""
+        """Get color corresponding to log level"""
         if not self.use_colors:
             return ""
         return LEVEL_COLORS.get(level_name.upper(), "")
@@ -221,18 +221,18 @@ class LoggerWrapper:
     
     def highlight(self, message: str, data: Optional[Dict[str, Any]] = None):
         """
-        突出显示重要结果或最终输出，使用明亮的颜色和粗体。
+        Highlight important results or final output, using bright colors and bold text.
         
         Args:
-            message: 要高亮显示的消息
-            data: 可选的结构化数据
+            message: Message to highlight
+            data: Optional structured data
         """
         highlighted_msg = message
         if self.use_colors:
             highlighted_msg = f"{COLORS['BOLD']}{COLORS['WHITE']}{message}{COLORS['RESET']}"
             
         if data:
-            # 高亮显示数据部分
+            # Highlight data portion
             formatted_data = " ".join(f"{COLORS['BOLD']}{COLORS['CYAN']}{k.upper()}{COLORS['RESET']}={COLORS['WHITE']}{self._format_value(v)}{COLORS['RESET']}" 
                                     for k, v in data.items()) if self.use_colors else self._format_data(data)
             self.logger.info(f"{highlighted_msg} {formatted_data}")
@@ -241,11 +241,11 @@ class LoggerWrapper:
             
     def result(self, message: str, data: Optional[Dict[str, Any]] = None):
         """
-        记录最终结果，以突出显示方式。
-        这是highlight方法的别名。
+        Log final results in a highlighted format.
+        This is an alias for the highlight method.
         
         Args:
-            message: 结果消息
-            data: 可选的结构化数据
+            message: Result message
+            data: Optional structured data
         """
         self.highlight(message, data) 

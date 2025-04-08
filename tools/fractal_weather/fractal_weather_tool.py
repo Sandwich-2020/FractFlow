@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Example script demonstrating how to use the FractalMCP Agent interface.
+Example script demonstrating how to use the FractalFlow Agent interface.
 
-This example shows the basic setup and usage of the FractalMCP Agent
+This example shows the basic setup and usage of the FractalFlow Agent
 as described in the interface requirements.
 """
 
@@ -14,7 +14,7 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.insert(0, project_root)  # <-- 添加这3行
 from dotenv import load_dotenv
 
-# Import the FractalMCP Agent
+# Import the FractalFlow Agent
 from FractFlow.agent import Agent
 import mcp
 from mcp.server.fastmcp import FastMCP

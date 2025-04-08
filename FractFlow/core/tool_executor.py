@@ -1,4 +1,12 @@
 """
+tool_executor.py
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-08
+Description: Handles the execution of tools based on model requests, providing abstraction between the model and actual tools.
+License: MIT License
+"""
+
+"""
 Tool executor.
 
 Handles the execution of tools based on model requests.

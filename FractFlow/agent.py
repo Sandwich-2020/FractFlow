@@ -1,7 +1,15 @@
 """
-Agent interface for FractalMCP.
+agent.py
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-08
+Description: Main agent interface for FractalFlow providing user-friendly interaction with the agent system.
+License: MIT License
+"""
 
-Provides a simple user-friendly interface for interacting with the FractalMCP agent system.
+"""
+Agent interface for FractalFlow.
+
+Provides a simple user-friendly interface for interacting with the FractalFlow agent system.
 """
 
 import os
@@ -16,20 +24,20 @@ from .infra.config import ConfigManager
 import logging
 from FractFlow.infra.logging_utils import setup_logging
 
-# 设置使用彩色日志
+# Set up colored logs
 setup_logging(level=logging.INFO, use_colors=True)
 
 class Agent:
     """
-    Main interface for using the FractalMCP agent.
+    Main interface for using the FractalFlow agent.
     
     This class provides a simplified interface for configuring and using
-    the FractalMCP agent system.
+    the FractalFlow agent system.
     """
     
     def __init__(self, system_prompt: Optional[str] = None):
         """
-        Initialize the FractalMCP agent.
+        Initialize the FractalFlow agent.
         
         Args:
             system_prompt: Optional system prompt to initialize the agent

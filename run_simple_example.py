@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 """
-Example script demonstrating how to use the FractalMCP Agent interface.
+run_simple_example.py
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-08
+Description: Example script demonstrating how to use the FractalFlow Agent interface with basic setup and usage.
+License: MIT License
+"""
 
-This example shows the basic setup and usage of the FractalMCP Agent
+"""
+Example script demonstrating how to use the FractalFlow Agent interface.
+
+This example shows the basic setup and usage of the FractalFlow Agent
 as described in the interface requirements.
 """
 
@@ -10,7 +18,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 
-# Import the FractalMCP Agent
+# Import the FractalFlow Agent
 from FractFlow.agent import Agent
 from FractFlow.infra.config import ConfigManager
 

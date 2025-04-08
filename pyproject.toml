@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "FractFlow"
 version = "0.1.0"
-description = "FractFlow: A Multi-model, Chat-optimized Provider for AI Agents"
+description = "FractFlow: Fractal Coordination in a Distributed Cognitive System"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -24,11 +24,19 @@ dependencies = [
     "python-dotenv",
     "requests",
     "asyncio",
+    "openai",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "typing-extensions",
+    "httpx",
+    "httpx-sse",
+    "websockets",
+    "tenacity",
+    "jinja2",
+    "orjson",
 ]
 
-[project.urls]
-"Homepage" = "https://github.com/yourusername/FractalMCP"
-"Bug Tracker" = "https://github.com/yourusername/FractalMCP/issues"
 
 [tool.setuptools]
 packages = ["FractFlow"]

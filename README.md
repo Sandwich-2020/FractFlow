@@ -1,18 +1,18 @@
-# FractalMCP
+# FractalFlow
 
-FractalMCP is a modular agent framework that integrates language models with tools to create powerful AI assistants.
+FractalFlow is a modular agent framework that integrates language models with tools to create powerful AI assistants.
 
 ## Installation
 
 ```bash
-pip install FractalMCP
+pip install FractalFlow
 ```
 
 ## Quick Start
 
 ```python
 import asyncio
-from FractalMCP.agent import Agent
+from FractalFlow.agent import Agent
 
 async def main():
     # Create a new agent
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
 ### Agent Class
 
-The main interface for using FractalMCP.
+The main interface for using FractalFlow.
 
 #### Constructor
 
@@ -81,7 +81,7 @@ agent = Agent(system_prompt=None, provider=None)
 ## Project Structure
 
 ```
-FractalMCP/
+FractalFlow/
 ├── core/                     # Core framework components
 │   ├── orchestrator.py       # High-level orchestration
 │   ├── query_processor.py    # User query processing
@@ -103,7 +103,7 @@ FractalMCP/
 
 ## Configuration
 
-FractalMCP can be configured using the `get_config()` and `set_config()` methods. The configuration structure is:
+FractalFlow can be configured using the `get_config()` and `set_config()` methods. The configuration structure is:
 
 ```python
 config = {
@@ -140,6 +140,6 @@ config = {
 
 ## Adding New Model Providers
 
-1. Create a new implementation of `BaseModel` in the `FractalMCP/models/` directory
-2. Update the model factory in `FractalMCP/models/factory.py` to support the new provider
-3. Create a provider-specific adapter in `FractalMCP/conversation/provider_adapters/` 
+1. Create a new implementation of `BaseModel` in the `FractalFlow/models/` directory
+2. Update the model factory in `FractalFlow/models/factory.py` to support the new provider
+3. Create a provider-specific adapter in `FractalFlow/conversation/provider_adapters/` 

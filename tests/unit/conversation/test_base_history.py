@@ -1,5 +1,5 @@
 import pytest
-from FractalMCP.conversation.base_history import ConversationHistory
+from FractalFlow.conversation.base_history import ConversationHistory
 
 class TestConversationHistory:
     """测试对话历史管理"""

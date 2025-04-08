@@ -1,4 +1,12 @@
 """
+orchestrator.py
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-08
+Description: Core orchestrator that handles high-level orchestration of agent components, including model creation, tool management, and system initialization.
+License: MIT License
+"""
+
+"""
 Core orchestrator.
 
 Handles high-level orchestration of the agent components, including model creation,

@@ -1,6 +1,6 @@
 import pytest
-from FractalMCP.conversation.provider_adapters.openai_adapter import OpenAIHistoryAdapter
-from FractalMCP.conversation.provider_adapters.deepseek_adapter import DeepSeekHistoryAdapter
+from FractalFlow.conversation.provider_adapters.openai_adapter import OpenAIHistoryAdapter
+from FractalFlow.conversation.provider_adapters.deepseek_adapter import DeepSeekHistoryAdapter
 
 class TestOpenAIHistoryAdapter:
     """测试OpenAI历史适配器"""

@@ -1,13 +1,13 @@
 import pytest
 import unittest.mock as mock
-from FractalMCP.models.factory import create_model
-from FractalMCP.models.deepseek_model import DeepSeekModel
-from FractalMCP.models.qwen_model import QwenModel
+from FractalFlow.models.factory import create_model
+from FractalFlow.models.deepseek_model import DeepSeekModel
+from FractalFlow.models.qwen_model import QwenModel
 
 class TestModelFactory:
     """测试模型工厂"""
     
-    @mock.patch('FractalMCP.models.deepseek_model.OpenAI')
+    @mock.patch('FractalFlow.models.deepseek_model.OpenAI')
     def test_create_model_deepseek(self, mock_openai):
         """测试创建DeepSeek模型"""
         # 使用明确的提供者参数
@@ -16,7 +16,7 @@ class TestModelFactory:
         # 验证OpenAI客户端被正确初始化
         mock_openai.assert_called()
     
-    @mock.patch('FractalMCP.models.qwen_model.OpenAI')
+    @mock.patch('FractalFlow.models.qwen_model.OpenAI')
     def test_create_model_qwen(self, mock_openai):
         """测试创建QWEN模型"""
         # 使用明确的提供者参数
@@ -25,8 +25,8 @@ class TestModelFactory:
         # 验证OpenAI客户端被正确初始化
         mock_openai.assert_called()
     
-    @mock.patch('FractalMCP.models.factory.config')
-    @mock.patch('FractalMCP.models.deepseek_model.OpenAI')
+    @mock.patch('FractalFlow.models.factory.config')
+    @mock.patch('FractalFlow.models.deepseek_model.OpenAI')
     def test_create_model_from_config(self, mock_openai, mock_config):
         """测试从配置创建模型"""
         # 配置返回deepseek作为提供者
