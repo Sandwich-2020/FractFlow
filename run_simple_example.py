@@ -23,6 +23,7 @@ async def main():
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
+    config['deepseek']['model'] = 'deepseek-chat'
     config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value

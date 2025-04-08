@@ -8,10 +8,10 @@ consistent error management across the agent system.
 import logging
 import traceback
 from typing import Optional, Dict, Any
+from .logging_utils import get_logger, COLORS
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 使用新的日志工具替代基础配置
+logger = get_logger(__name__)
 
 class AgentError(Exception):
     """Base exception class for all agent errors."""
@@ -55,11 +55,11 @@ def handle_error(error: Exception, context: Optional[Dict[str, Any]] = None) -> 
     Returns:
         An appropriate AgentError instance
     """
-    # Log the error
+    # 错误信息应当保持高亮显示以引起注意
     if context:
-        logger.error(f"Error: {str(error)}, Context: {context}")
+        logger.error(f"{COLORS['BOLD']}错误发生{COLORS['RESET']}", {"错误信息": str(error), "上下文": context})
     else:
-        logger.error(f"Error: {str(error)}")
+        logger.error(f"{COLORS['BOLD']}错误发生{COLORS['RESET']}", {"错误信息": str(error)})
     
     # Include stack trace for debugging
     logger.debug(traceback.format_exc())

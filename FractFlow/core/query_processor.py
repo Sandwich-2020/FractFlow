@@ -11,8 +11,9 @@ from .orchestrator import Orchestrator
 from .tool_executor import ToolExecutor
 from ..infra.config import ConfigManager
 from ..infra.error_handling import AgentError, handle_error
+from ..infra.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 config = ConfigManager()
 
 class QueryProcessor:
@@ -49,7 +50,7 @@ class QueryProcessor:
             model = self.orchestrator.get_model()
             
             # Add user message to history
-            logger.info(f"Processing user query: {user_query}")
+            logger.info("Processing user query", {"query": user_query})
             model.add_user_message(user_query)
             
             # Get the tools schema
@@ -60,19 +61,22 @@ class QueryProcessor:
             
             # Main agent loop (ReAct)
             for iteration in range(self.max_iterations):
-                logger.info(f"Starting iteration {iteration+1}/{self.max_iterations}")
+                logger.info("Starting iteration", {"current": iteration+1, "max": self.max_iterations})
                 
                 # Get response from model
                 response = await model.execute(tools)
                 
                 message = response["choices"][0]["message"]
-                logger.info(f"REACT Message: {message}")
+                logger.info("REACT Message received", {"message_preview": str(message)})
                 tool_calls = message.get("tool_calls", [])
                 content = message.get("content", "Sorry, I couldn't understand your request.")
                 
                 # If there are no tool calls, return final answer
                 if not tool_calls:
-                    logger.info("No tool calls detected, returning final answer")
+                    # 将最终回答添加到历史记录中
+                    model.add_assistant_message(content)
+                    # 记录最终结果时的完整对话历史
+                    model.history.log_history(logging.INFO, f"Interation History（Number of Iteration:{iteration+1}）")
                     return content
                 
                 # Only process the FIRST tool call in each iteration
@@ -110,7 +114,7 @@ class QueryProcessor:
                         logger.warning("Tool call missing 'name' field")
                         continue
                     
-                    logger.info(f"Calling tool: {tool_name} with args: {function_args}")
+                    logger.info("Calling tool", {"name": tool_name, "args": function_args})
                     
                     # Store the assistant message first
                     model.add_assistant_message(content, [tool_call])
@@ -118,24 +122,34 @@ class QueryProcessor:
                     # Call the tool
                     try:
                         result = await self.tool_executor.execute_tool(tool_name, function_args)
+                        # 添加截断的工具执行结果日志
+                        truncated_result = str(result)[:200] + ("..." if len(str(result)) > 200 else "")
+                        logger.info("Tool execution result", {"tool": tool_name, "result": truncated_result})
                         # Add result to conversation history
                         model.add_tool_result(tool_name, result, tool_call_id)
                         
                         # Log remaining tool calls for debugging
                         if len(tool_calls) > 1:
-                            logger.info(f"Deferring {len(tool_calls)-1} additional tool calls to next iteration")
+                            logger.info("Deferring additional tool calls", {"count": len(tool_calls)-1})
                             
                     except Exception as e:
                         error = handle_error(e, {"tool_name": tool_name, "args": function_args})
                         error_message = f"Error calling tool {tool_name}: {str(error)}"
-                        logger.error(error_message)
+                        logger.error(error_message, {"tool": tool_name, "error": str(error)})
                         model.add_tool_result(tool_name, error_message, tool_call_id)
             
             # If we reached the maximum iterations, return a fallback response
-            logger.warning(f"Reached maximum iterations ({self.max_iterations})")
-            return "I spent too much time processing your request. Here's what I've gathered so far: " + content
+            logger.warning("Reached maximum iterations", {"max": self.max_iterations})
+            # 记录达到最大迭代次数时的完整对话历史
+            final_content = "I spent too much time processing your request. Here's what I've gathered so far: " + content
+            model.add_assistant_message(final_content)
+            model.history.log_history(logging.WARNING, "达到最大迭代次数")
+            return final_content
         
         except Exception as e:
             error = handle_error(e, {"user_query": user_query})
-            logger.error(f"Error in process_query: {error}")
+            logger.error("Error in process_query", {"error": str(error)})
+            # 如果模型已初始化，记录错误时的对话历史
+            if 'model' in locals() and hasattr(model, 'history'):
+                model.history.log_history(logging.ERROR, "ERROR in process_query")
             return f"Sorry, there was a technical problem processing your request. Error: {str(error)}" 

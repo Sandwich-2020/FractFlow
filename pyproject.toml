@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "FractalMCP"
+name = "FractFlow"
 version = "0.1.0"
-description = "FractalMCP: A Multi-model, Chat-optimized Provider for AI Agents"
+description = "FractFlow: A Multi-model, Chat-optimized Provider for AI Agents"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-    { name = "FractalMCP Team" }
+    { name = "Yingcong Chen" }
 ]
 keywords = ["ai", "agent", "llm", "tools"]
 classifiers = [
@@ -31,4 +31,4 @@ dependencies = [
 "Bug Tracker" = "https://github.com/yourusername/FractalMCP/issues"
 
 [tool.setuptools]
-packages = ["FractalMCP"]
+packages = ["FractFlow"]

@@ -231,12 +231,12 @@ Remember: Only use tools when specific information is truly needed. If you can a
             tool_instruction = self._extract_tool_instruction(content)
             
             if tool_instruction and tools:
-                logger.info(f"Extracted tool instruction: {tool_instruction[:100]}...")
+                logger.info(f"Extracted tool instruction: {tool_instruction}...")
                 # Call the tool - this now returns OpenAI-formatted tool calls
                 tool_call = await self.tool_helper.call_tool(tool_instruction, tools)
                 
                 if tool_call:
-                    logger.info(f"Generated tool call: {json.dumps(tool_call)[:100]}...")
+                    logger.info(f"Generated tool call: {json.dumps(tool_call)}...")
                     return {
                         "choices": [{
                             "message": {

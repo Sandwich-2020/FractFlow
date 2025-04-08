@@ -7,6 +7,10 @@ different message types and provider-specific adapters.
 
 from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
+import logging
+from ..infra.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 class BaseConversationHistory(ABC):
     """
@@ -91,6 +95,17 @@ class BaseConversationHistory(ABC):
         
         Returns:
             A string representation of the entire conversation history
+        """
+        pass
+    
+    @abstractmethod
+    def log_history(self, level: int = logging.INFO, prefix: str = "对话历史") -> None:
+        """
+        使用日志系统记录整个对话历史。
+        
+        Args:
+            level: 日志级别，默认INFO
+            prefix: 日志前缀文本
         """
         pass
 
@@ -240,8 +255,8 @@ class ConversationHistory(BaseConversationHistory):
         for i, message in enumerate(self.messages):
             role = message.get("role", "unknown")
             content_preview = message.get("content", "")
-            if len(content_preview) > 50:
-                content_preview = content_preview[:47] + "..."
+            # if len(content_preview) > 50:
+            #     content_preview = content_preview[:47] + "..."
                 
             # Format based on message type
             if role == "system":
@@ -261,4 +276,22 @@ class ConversationHistory(BaseConversationHistory):
                 output.append(f"[{i}] UNKNOWN: {content_preview}")
                 
         output.append("========================================")
-        return "\n".join(output) 
+        return "\n".join(output)
+    
+    def log_history(self, level: int = logging.INFO, prefix: str = "对话历史") -> None:
+        """
+        使用日志系统记录整个对话历史。
+        
+        Args:
+            level: 日志级别，默认INFO
+            prefix: 日志前缀文本
+        """
+        history_output = self.format_debug_output()
+        
+        # 将历史记录分成多行记录，保持格式
+        log_func = getattr(logger, logging.getLevelName(level).lower(), logger.info)
+        
+        # 记录带有横幅的标题
+        log_func(f"===== {prefix} START =====")
+        log_func(history_output)
+        log_func(f"===== {prefix} END =====") 

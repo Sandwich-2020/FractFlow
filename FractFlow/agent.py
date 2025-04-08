@@ -14,7 +14,10 @@ from .core.tool_executor import ToolExecutor
 from .infra.config import ConfigManager
 
 import logging
-logging.basicConfig(level=logging.WARNING, force=True)
+from FractFlow.infra.logging_utils import setup_logging
+
+# 设置使用彩色日志
+setup_logging(level=logging.INFO, use_colors=True)
 
 class Agent:
     """
