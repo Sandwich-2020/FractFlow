@@ -71,6 +71,12 @@ class QueryProcessor:
                 tool_calls = message.get("tool_calls", [])
                 content = message.get("content", "Sorry, I couldn't understand your request.")
                 
+                # 记录推理内容（如果存在）
+                reasoning_content = message.get("reasoning_content")
+                if reasoning_content:
+                    truncated_reasoning = str(reasoning_content)[:500] + ("..." if len(str(reasoning_content)) > 500 else "")
+                    logger.info("Reasoning content", {"reasoning": truncated_reasoning})
+                
                 # If there are no tool calls, return final answer
                 if not tool_calls:
                     # 将最终回答添加到历史记录中

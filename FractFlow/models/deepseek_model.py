@@ -227,6 +227,13 @@ Remember: Only use tools when specific information is truly needed. If you can a
             content = response.choices[0].message.content
             logger.info(f"Received response from DeepSeek: {content[:100]}...")
             
+            # 获取和记录reasoning_content
+            reasoning_content = None
+            if hasattr(response.choices[0].message, 'reasoning_content'):
+                reasoning_content = response.choices[0].message.reasoning_content
+                logger.info(f"Reasoning content from DeepSeek: {reasoning_content}")
+            else:
+                reasoning_content = None
             # Check if the response contains a tool instruction
             tool_instruction = self._extract_tool_instruction(content)
             
@@ -241,7 +248,8 @@ Remember: Only use tools when specific information is truly needed. If you can a
                         "choices": [{
                             "message": {
                                 "content": content,
-                                "tool_calls": [tool_call]
+                                "tool_calls": [tool_call],
+                                "reasoning_content": reasoning_content
                             }
                         }]
                     }
@@ -251,7 +259,8 @@ Remember: Only use tools when specific information is truly needed. If you can a
                         "choices": [{
                             "message": {
                                 "content": content,
-                                "tool_calls": None
+                                "tool_calls": None,
+                                "reasoning_content": reasoning_content
                             }
                         }]
                     }
@@ -261,7 +270,8 @@ Remember: Only use tools when specific information is truly needed. If you can a
                     "choices": [{
                         "message": {
                             "content": content,
-                            "tool_calls": None
+                            "tool_calls": None,
+                            "reasoning_content": reasoning_content
                         }
                     }]
                 }
