@@ -39,10 +39,7 @@ async def main():
     agent.set_config(config)
     
     # Add tools to the agent
-    if os.path.exists("./tools/forecast.py"):
-        agent.add_tool("./tools/forecast.py")
-        print("Added weather tool")
-    
+    agent.add_tool("./tools/coding.py")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()
