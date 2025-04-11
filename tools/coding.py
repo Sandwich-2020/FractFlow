@@ -135,8 +135,7 @@ async def code_writer(module_name: str, functions: List[Dict]) -> str:
             returns=func.get("returns", "Any"),
             doc=func.get("doc", "")
         )
-
-
+    
     for func in functions:
         prompt = make_prompt(module_name, func)
         completion = client.chat.completions.create(
