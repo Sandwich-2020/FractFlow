@@ -1,8 +1,155 @@
 import os
 import subprocess
+from typing import List, Dict
 from mcp.server.fastmcp import FastMCP
+from openai import OpenAI
+import json
 
 mcp = FastMCP("code_executor")
+
+@mcp.tool()
+async def spec_parser(user_request: str) -> str:
+    """
+    Converts natural language requirements into a structured JSON specification for software architecture.
+    
+    This function calls the DeepSeek Chat API to transform user requirements into a formal specification 
+    that includes task description, module breakdown, and function definitions with their parameters,
+    return types, and documentation.
+    
+    Args:
+        user_request (str): Natural language description of the software requirements or features
+                            the user wants to implement.
+        
+    Returns:
+        str: A JSON-formatted string containing the structured specification with the following structure:
+             {
+                "task_brief": "Brief description of the overall task",
+                "modules": [
+                    {
+                        "name": "Module name",
+                        "description": "Module responsibility description",
+                        "functions": [
+                            {
+                                "name": "function_name",
+                                "params": {"param1": "type1", ...},
+                                "returns": "return_type",
+                                "doc": "Function documentation"
+                            },
+                            ...
+                        ]
+                    },
+                    ...
+                ]
+             }
+             
+    Example:
+        >>> spec = await spec_parser("Create a task management system with the ability to add, delete, and mark tasks as complete")
+        >>> # Returns a JSON string with modules like TaskManager, Task, etc.
+        
+    Note:
+        Requires a valid DeepSeek API key to function correctly.
+    """
+    client = OpenAI(
+    # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
+    api_key='sk-fd20bf9c2c0f4c9ea49ae5ed53037504',
+    base_url="https://api.deepseek.com",)
+    model_name = "deepseek-chat"
+    SYSTEM_PROMPT = """
+    你是一个经验丰富的软件架构师，善于将自然语言的需求转化为结构化的模块设计。
+    请根据以下用户需求，输出包含任务说明、模块划分、每个模块的职责、关键函数的名称、参数、返回类型和说明。
+
+    用户需求：
+    "{user_request}"
+
+    请用 JSON 格式输出，如下：
+    {{
+    "task_brief": "...",
+    "modules": [
+        {{
+        "name": "...",
+        "description": "...",
+        "functions": [
+            {{
+            "name": "...",
+            "params": {{"param1": "type1", ...}},
+            "returns": "...",
+            "doc": "..."
+            }},
+            ...
+        ]
+        }},
+        ...
+    ]
+    }}
+    """
+    completion = client.chat.completions.create(
+        model=model_name, 
+        messages=[
+            {'role': 'system', 'content': SYSTEM_PROMPT},
+            {'role': 'user', 'content': user_request}
+            ]
+    )
+    
+    # Return the completion content
+    return completion.choices[0].message.content
+
+
+@mcp.tool()
+async def code_writer(module_name: str, functions: List[Dict]) -> str:
+    """
+    根据结构化函数设计信息，生成完整的 Python 模块代码。
+    
+    Args:
+        module_name: 模块名（文件名用）
+        functions: 一个函数草图列表，每个字典含 name, params, returns, doc
+    
+    Returns:
+        str: Python 模块源码
+    """
+    client = OpenAI(
+        api_key="sk-fd20bf9c2c0f4c9ea49ae5ed53037504",
+        base_url="https://api.deepseek.com",
+    )
+
+    model = "deepseek-chat"
+    all_code = []
+
+    PROMPT_TEMPLATE = """
+    你是一位经验丰富的 Python 工程师。请根据以下函数设计信息，编写完整的 Python 函数（包括函数定义与 docstring），风格清晰、易读。
+
+    模块名：{module_name}
+
+    函数名：{name}
+    参数：{params}
+    返回值类型：{returns}
+    函数功能描述：{doc}
+
+    请输出完整函数代码，包含 docstring。
+    """
+
+    def make_prompt(module_name: str, func: Dict) -> str:
+        return PROMPT_TEMPLATE.format(
+            module_name=module_name,
+            name=func.get("name"),
+            params=json.dumps(func.get("params", {}), ensure_ascii=False),
+            returns=func.get("returns", "Any"),
+            doc=func.get("doc", "")
+        )
+
+
+    for func in functions:
+        prompt = make_prompt(module_name, func)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "你是一个代码生成器"},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        code = completion.choices[0].message.content.strip()
+        all_code.append(code)
+
+    return "\n\n".join(all_code)
 
 @mcp.tool()
 async def write_file(path: str, content: str) -> str:
