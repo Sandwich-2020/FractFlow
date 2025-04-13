@@ -35,18 +35,12 @@ class Agent:
     the FractalFlow agent system.
     """
     
-    def __init__(self, system_prompt: Optional[str] = None):
+    def __init__(self):
         """
         Initialize the FractalFlow agent.
-        
-        Args:
-            system_prompt: Optional system prompt to initialize the agent
         """
         # Initialize configuration with defaults only
         self.config_manager = ConfigManager()
-        
-        # Set system prompt if provided
-        self.system_prompt = system_prompt
         
         # Initialize tool configs
         self.tool_configs = {}
@@ -100,7 +94,6 @@ class Agent:
             provider = self.config_manager.get('agent.provider')
             
             self._orchestrator = Orchestrator(
-                system_prompt=self.system_prompt,
                 tool_configs=self.tool_configs,
                 provider=provider
             )

@@ -165,9 +165,11 @@ class QwenModel(BaseModel):
         )
         self.model = config.get('qwen.model', 'qwen-max')
         
-        # Create conversation history
-        self.history = ConversationHistory(system_prompt or config.get('agent.default_system_prompt', '') or """You are an intelligent assistant. When users need specific information, you should use available tools to obtain it.
-Your response should follow one of these formats:
+        # Define the default personality
+        DEFAULT_PERSONALITY = "You are an intelligent assistant. When users need specific information, you should use available tools to obtain it."
+        
+        # Define the tool calling instructions
+        TOOL_CALLING_INSTRUCTIONS = """Your response should follow one of these formats:
 
 1. If tools are needed:
 TOOL_INSTRUCTION
@@ -178,7 +180,16 @@ END_INSTRUCTION
 2. If no tools are needed:
 Provide answer or explanation directly
 
-Remember: Only use tools when specific information is truly needed. If you can answer directly, do so.""")
+Remember: Only use tools when specific information is truly needed. If you can answer directly, do so."""
+        
+        # Get customizable part of the system prompt
+        custom_system_prompt = config.get('agent.custom_system_prompt', '') or system_prompt or DEFAULT_PERSONALITY
+        
+        # Combine the custom prompt with the required tool calling instructions
+        complete_system_prompt = f"{custom_system_prompt}\n\n{TOOL_CALLING_INSTRUCTIONS}"
+        
+        # Create conversation history with the complete system prompt
+        self.history = ConversationHistory(complete_system_prompt)
         
         self.history_adapter = QwenHistoryAdapter()
         self.tool_helper = QwenToolCallingHelper()

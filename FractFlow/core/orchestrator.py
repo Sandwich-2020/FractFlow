@@ -36,22 +36,22 @@ class Orchestrator:
     """
     
     def __init__(self,
-                 system_prompt: Optional[str] = None,
                  tool_configs: Optional[Dict[str, str]] = None,
                  provider: Optional[str] = None):
         """
         Initialize the orchestrator.
         
         Args:
-            system_prompt: Initial system prompt to use
             tool_configs: Dictionary mapping tool names to their provider scripts
                           Example: {'weather': '/path/to/weather_tool.py',
                                    'search': '/path/to/search_tool.py'}
             provider: The AI provider to use (e.g., 'openai', 'deepseek')
         """
-        # Create the model
-        self.model = create_model(system_prompt, provider)
+        # Get provider from config or use provided override
         self.provider = provider or config.get('agent.provider', 'openai')
+        
+        # Create the model directly using factory with provider only
+        self.model = create_model(provider=self.provider)
         
         # Tool launcher will be initialized in self.start()
         self.launcher = None

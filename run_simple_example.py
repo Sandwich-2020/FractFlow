@@ -30,6 +30,7 @@ async def main():
     agent = Agent()  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
+    config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
     config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
@@ -39,7 +40,7 @@ async def main():
     agent.set_config(config)
     
     # Add tools to the agent
-    agent.add_tool("./tools/coding.py")
+    agent.add_tool("./tools/forecast.py")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()

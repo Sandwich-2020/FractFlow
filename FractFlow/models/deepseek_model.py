@@ -20,6 +20,28 @@ from ..conversation.provider_adapters.deepseek_adapter import DeepSeekHistoryAda
 logger = logging.getLogger(__name__)
 config = ConfigManager()
 
+# Define the tool calling instructions as a constant - this part is required for function calling to work
+TOOL_CALLING_INSTRUCTIONS = """When tools are needed, include a JSON-formatted tool call anywhere in your response. You can use code blocks or inline JSON. The tool call should include the tool name and required arguments.
+
+Common formats include:
+```json
+{"tool_call": {"name": "tool_name", "arguments": {"param1": "value1"}}}
+```
+
+For multiple tool calls, you can use:
+```json
+{"tool_calls": [{"name": "tool1", "arguments": {...}}, {"name": "tool2", "arguments": {...}}]}
+```
+
+Or any equivalent format as long as it contains the required name and arguments fields.
+
+If no tools are needed, simply provide a direct answer or explanation.
+
+Remember: Only use tools when specific information is truly needed. If you can answer directly, do so."""
+
+# Default personality component that can be customized
+DEFAULT_PERSONALITY = "You are an intelligent assistant. When users need specific information, you should use available tools to obtain it."
+
 class DeepSeekToolCallingHelper:
     """
     Helper class for tool calling with DeepSeek models.
@@ -153,12 +175,9 @@ class DeepSeekModel(BaseModel):
     high-quality tool calling instructions using DeepSeek's models.
     """
     
-    def __init__(self, system_prompt: str = ""):
+    def __init__(self):
         """
         Initialize the DeepSeek model.
-        
-        Args:
-            system_prompt: Custom system prompt to use
         """
         self.client = OpenAI(
             base_url=config.get('deepseek.base_url', 'https://api.deepseek.com'),
@@ -166,28 +185,14 @@ class DeepSeekModel(BaseModel):
         )
         self.model = config.get('deepseek.model', 'deepseek-reasoner')
         
-        # Create conversation history
-        default_system_prompt = config.get('agent.default_system_prompt', '') or """You are an intelligent assistant. When users need specific information, you should use available tools to obtain it.
-
-When tools are needed, include a JSON-formatted tool call anywhere in your response. You can use code blocks or inline JSON. The tool call should include the tool name and required arguments.
-
-Common formats include:
-```json
-{"tool_call": {"name": "tool_name", "arguments": {"param1": "value1"}}}
-```
-
-For multiple tool calls, you can use:
-```json
-{"tool_calls": [{"name": "tool1", "arguments": {...}}, {"name": "tool2", "arguments": {...}}]}
-```
-
-Or any equivalent format as long as it contains the required name and arguments fields.
-
-If no tools are needed, simply provide a direct answer or explanation.
-
-Remember: Only use tools when specific information is truly needed. If you can answer directly, do so."""
-
-        self.history = ConversationHistory(system_prompt or default_system_prompt)
+        # Get system prompt from config, or use default personality
+        custom_system_prompt = config.get('agent.custom_system_prompt', DEFAULT_PERSONALITY)
+        
+        # Combine the custom prompt with the required tool calling instructions
+        complete_system_prompt = f"{custom_system_prompt}\n\n{TOOL_CALLING_INSTRUCTIONS}"
+        
+        # Create conversation history with the complete system prompt
+        self.history = ConversationHistory(complete_system_prompt)
         
         self.history_adapter = DeepSeekHistoryAdapter()
         self.tool_helper = DeepSeekToolCallingHelper()

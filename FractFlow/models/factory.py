@@ -10,12 +10,11 @@ from ..infra.config import ConfigManager
 
 config = ConfigManager()
 
-def create_model(system_prompt: Optional[str] = None, provider: Optional[str] = None) -> BaseModel:
+def create_model(provider: Optional[str] = None) -> BaseModel:
     """
     Factory function to create an appropriate model based on the provider.
     
     Args:
-        system_prompt: Optional system prompt to use
         provider: The AI provider to use (e.g., 'openai', 'deepseek', 'qwen')
         
     Returns:
@@ -30,10 +29,10 @@ def create_model(system_prompt: Optional[str] = None, provider: Optional[str] = 
     
     if provider == 'deepseek':
         from .deepseek_model import DeepSeekModel
-        return DeepSeekModel(system_prompt)
+        return DeepSeekModel()
     elif provider == 'qwen':
         from .qwen_model import QwenModel
-        return QwenModel(system_prompt)
+        return QwenModel()
     elif provider == 'openai':
         # Note: This part would be properly implemented when OpenAIModel is created
         # For now, raising an error to indicate it's not implemented yet

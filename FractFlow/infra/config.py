@@ -59,8 +59,8 @@ class ConfigManager:
             },
             'agent': {
                 'max_iterations': 10,
-                'default_system_prompt': '',
-                'provider': 'deepseek',  # Default provider is deepseek
+                'custom_system_prompt': '',      # Field for customizable part of system prompt
+                'provider': 'deepseek',          # Default provider is deepseek
             }
         }
     
@@ -127,7 +127,8 @@ class ConfigManager:
             except ValueError:
                 pass  # Use default if conversion fails
                 
-        self.set('agent.default_system_prompt', env.get('DEFAULT_SYSTEM_PROMPT', self.get('agent.default_system_prompt')))
+        # Support both new and old environment variable for custom prompt (for transition period)
+        self.set('agent.custom_system_prompt', env.get('CUSTOM_SYSTEM_PROMPT', env.get('CUSTOM_PROMPT', env.get('DEFAULT_SYSTEM_PROMPT', self.get('agent.custom_system_prompt')))))
         self.set('agent.provider', env.get('AI_PROVIDER', self.get('agent.provider')))
     
     def get(self, key: str, default: Any = None) -> Any:
