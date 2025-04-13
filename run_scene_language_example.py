@@ -21,6 +21,8 @@ from dotenv import load_dotenv
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
 from FractFlow.infra.config import ConfigManager
+from prompts.sclg_agent_prompts import SYSTEM_PROMPT, get_user_prompt
+
 
 async def main():
     # 1. Load environment variables 
@@ -31,17 +33,18 @@ async def main():
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
-    config['deepseek']['model'] = 'deepseek-reasoner'
+    config['deepseek']['model'] = 'deepseek-chat'
     config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value
+    config['agent']['default_system_prompt'] = SYSTEM_PROMPT
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
     # Add tools to the agent
-    if os.path.exists("./tools/blender_mcp_server.py"):
-        agent.add_tool("./tools/blender_mcp_server.py")
-        print("Added blenderMCP tool")
+    # if os.path.exists("./tools/blender_mcp_server.py"):
+    #     agent.add_tool("./tools/blender_mcp_server.py")
+    #     print("Added blenderMCP tool")
     
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
@@ -56,6 +59,7 @@ async def main():
                 break
                 
             print("\n thinking... \n", end="")
+            user_input = get_user_prompt(user_input)
             result = await agent.process_query(user_input)
             print("Agent: {}".format(result))
     finally:

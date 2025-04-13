@@ -53,18 +53,18 @@ class DeepSeekToolCallingHelper:
         
         return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls.
 
-Available tools:
-{tools_description}
+        Available tools:
+        {tools_description}
 
-You must output strictly in the following JSON format:
-{{
-    "name": "tool_name",
-    "arguments": {{
-        "parameter_name": "parameter_value"
-    }}
-}}
+        You must output strictly in the following JSON format:
+        {{
+            "name": "tool_name",
+            "arguments": {{
+                "parameter_name": "parameter_value"
+            }}
+        }}
 
-Output JSON only, no other text."""
+        Output JSON only, no other text."""
 
     async def call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
@@ -169,24 +169,23 @@ class DeepSeekModel(BaseModel):
         # Create conversation history
         default_system_prompt = config.get('agent.default_system_prompt', '') or """You are an intelligent assistant. When users need specific information, you should use available tools to obtain it.
 
-When tools are needed, include a JSON-formatted tool call anywhere in your response. You can use code blocks or inline JSON. The tool call should include the tool name and required arguments.
+        When tools are needed, include a JSON-formatted tool call anywhere in your response. You can use code blocks or inline JSON. The tool call should include the tool name and required arguments.
 
-Common formats include:
-```json
-{"tool_call": {"name": "tool_name", "arguments": {"param1": "value1"}}}
-```
+        Common formats include:
+        ```json
+        {"tool_call": {"name": "tool_name", "arguments": {"param1": "value1"}}}
+        ```
 
-For multiple tool calls, you can use:
-```json
-{"tool_calls": [{"name": "tool1", "arguments": {...}}, {"name": "tool2", "arguments": {...}}]}
-```
+        For multiple tool calls, you can use:
+        ```json
+        {"tool_calls": [{"name": "tool1", "arguments": {...}}, {"name": "tool2", "arguments": {...}}]}
+        ```
 
-Or any equivalent format as long as it contains the required name and arguments fields.
+        Or any equivalent format as long as it contains the required name and arguments fields.
 
-If no tools are needed, simply provide a direct answer or explanation.
+        If no tools are needed, simply provide a direct answer or explanation.
 
-Remember: Only use tools when specific information is truly needed. If you can answer directly, do so."""
-
+        Remember: Only use tools when specific information is truly needed. If you can answer directly, do so."""
         self.history = ConversationHistory(system_prompt or default_system_prompt)
         
         self.history_adapter = DeepSeekHistoryAdapter()
