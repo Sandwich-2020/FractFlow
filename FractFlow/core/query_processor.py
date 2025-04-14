@@ -75,7 +75,6 @@ class QueryProcessor:
                 response = await model.execute(tools)
                 
                 message = response["choices"][0]["message"]
-                logger.info("MAIN LOOP Message received", {"message_preview": str(message)})
                 tool_calls = message.get("tool_calls", [])
                 content = message.get("content", "Sorry, I couldn't understand your request.")
                 

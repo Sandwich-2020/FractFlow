@@ -27,7 +27,7 @@ If no tools are needed, simply provide a direct answer or explanation.
 """
 
 # Default personality component that can be customized
-DEFAULT_PERSONALITY = "You are an intelligent assistant. When users need specific information, you should use available tools to obtain it."
+DEFAULT_PERSONALITY = "You are an intelligent assistant. You can think step-by-step. When users need specific information, you should use available tools to obtain it."
 
 class DeepSeekModel(BaseModel):
     """

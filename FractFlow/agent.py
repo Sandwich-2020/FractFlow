@@ -35,13 +35,13 @@ class Agent:
     the FractalFlow agent system.
     """
     
-    def __init__(self):
+    def __init__(self, name: str = 'agent'):
         """
         Initialize the FractalFlow agent.
         """
         # Initialize configuration with defaults only
         self.config_manager = ConfigManager()
-        
+        self.name = name
         # Initialize tool configs
         self.tool_configs = {}
         

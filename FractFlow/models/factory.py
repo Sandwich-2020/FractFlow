@@ -25,7 +25,7 @@ def create_model(provider: Optional[str] = None) -> BaseModel:
         ValueError: If the specified provider is not supported
     """
     # Use provider from args, or from config, or default to openai
-    provider = provider or config.get('agent.provider', 'openai')
+    provider = provider or config.get('agent.provider', 'deepseek')
     
     if provider == 'deepseek':
         if config.get('deepseek.model') == 'deepseek-reasoner':
