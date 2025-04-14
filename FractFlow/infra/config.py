@@ -48,7 +48,7 @@ class ConfigManager:
             'deepseek': {
                 'api_key': None,
                 'base_url': 'https://api.deepseek.com',
-                'model': 'deepseek-reasoner',
+                'model': 'deepseek-chat',
                 'tool_calling_model': 'deepseek-chat',
             },
             'qwen': {

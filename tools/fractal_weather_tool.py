@@ -23,7 +23,7 @@ mcp = FastMCP("fractal weather")
 @mcp.tool()
 async def weather_agent(user_input: str) -> str:
     """
-    This function takes user input and returns a weather forecast.
+    This function has an built-in LLM, it can takes user input and returns a weather forecast.
     Args:
         user_input: The user's input
     Returns:

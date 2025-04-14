@@ -28,7 +28,10 @@ def create_model(provider: Optional[str] = None) -> BaseModel:
     provider = provider or config.get('agent.provider', 'openai')
     
     if provider == 'deepseek':
-        from .deepseek_model import DeepSeekModel
+        if config.get('deepseek.model') == 'deepseek-reasoner':
+            from .deepseek_model_reasoner import DeepSeekModel
+        else:
+            from .deepseek_model import DeepSeekModel
         return DeepSeekModel()
     elif provider == 'qwen':
         from .qwen_model import QwenModel
