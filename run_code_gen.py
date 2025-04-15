@@ -29,9 +29,10 @@ async def main():
     # 3. Create a new agent
     agent = Agent()  # No need to specify provider here if it's in config
     config = agent.get_config()
-    config['agent']['provider'] = 'deepseek'
+    config['agent']['provider'] = 'qwen'
     config['agent']['custom_system_prompt'] = 'Given a request about coding, you should use the coordinator_agent to generate the code.'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
+    config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value

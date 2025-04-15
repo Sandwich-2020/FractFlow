@@ -29,11 +29,12 @@ async def main():
     # 3. Create a new agent
     agent = Agent()  # No need to specify provider here if it's in config
     config = agent.get_config()
-    config['agent']['provider'] = 'deepseek'
+    config['agent']['provider'] = 'qwen'
     config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
     config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
+    config['qwen']['base_url'] = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value
     # 4. Set configuration loaded from environment

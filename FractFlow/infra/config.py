@@ -53,7 +53,7 @@ class ConfigManager:
             },
             'qwen': {
                 'api_key': None,
-                'base_url': 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+                'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 'model': 'qwen-plus',
                 'tool_calling_model': 'qwen-plus',
             },
