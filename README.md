@@ -291,12 +291,8 @@ if __name__ == "__main__":
 
 This approach allows you to create a specialized Agent tool that can be called by other Agents, forming a fractal intelligence structure. Advanced Agents can delegate tasks to specialized Agents, and each specialized Agent can use its own set of tools.
 
-## Future Work
+----
 
-The ultimate goal of FractFlow is to build a fractal intelligence system, a dynamic flow of intelligence composed of Agents and tools, where each part is both an individual and can be nested to build higher-order intelligence structures.
-
-Currently, FractFlow is still in the development stage, and I will continue to update it. For those involved in internal testing, you need to:
-
-1. Try adding tools to verify its functionality. The current version has not been fully tested, so problems are normal. Please actively provide feedback (direct communication via WeChat).
-2. Do not share with others before the project is open-source.
-3. This project will be submitted to ICLR 2026. If you wish to participate, please let me know promptly.
+Supported models:
+- DeepSeek (reasoner and chat)
+- Qwen (qwen2.5-vl-72b-instruct, qwen-plus)
