@@ -289,7 +289,7 @@ class ConversationHistory(BaseConversationHistory):
         history_output = self.format_debug_output()
         
         # 将历史记录分成多行记录，保持格式
-        log_func = getattr(logger, logging.getLevelName(level).lower(), logger.info)
+        log_func = getattr(logger, logging.getLevelName(level).lower(), logger.debug)
         
         # 记录带有横幅的标题
         log_func(f"===== {prefix} START =====")

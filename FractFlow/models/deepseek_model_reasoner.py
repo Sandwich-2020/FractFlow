@@ -210,7 +210,7 @@ class DeepSeekModel(BaseModel):
             # Debug output for raw history
             if self.debug_enabled:
                 raw_history = self.history.format_debug_output()
-                logger.info(f"Raw conversation history before adaptation:\n{raw_history}")
+                logger.debug(f"Raw conversation history before adaptation:\n{raw_history}")
             
             # Format history for DeepSeek using the adapter
             formatted_messages = self.history_adapter.format_for_model(
@@ -222,10 +222,10 @@ class DeepSeekModel(BaseModel):
                 adapter_debug = self.history_adapter.format_debug_output(
                     formatted_messages, tools, "DEEPSEEK INPUT"
                 )
-                logger.info(f"Adapter conversion details:\n{adapter_debug}")
+                logger.debug(f"Adapter conversion details:\n{adapter_debug}")
 
             # Get model response
-            logger.info(f"Calling DeepSeek model: {self.model}")
+            logger.debug(f"Calling DeepSeek model: {self.model}")
             response = await self._create_chat_completion(
                 model=self.model,
                 messages=formatted_messages
@@ -236,13 +236,13 @@ class DeepSeekModel(BaseModel):
                 return create_error_response(LLMError("Failed to get response from model"))
                 
             content = response.choices[0].message.content
-            logger.info(f"Received response from DeepSeek: {content[:100]}...")
+            logger.debug(f"Received response from DeepSeek: {content[:100]}...")
             
             # 获取和记录reasoning_content
             reasoning_content = None
             if hasattr(response.choices[0].message, 'reasoning_content'):
                 reasoning_content = response.choices[0].message.reasoning_content
-                logger.info(f"Reasoning content from DeepSeek: {reasoning_content}")
+                logger.debug(f"Reasoning content from DeepSeek: {reasoning_content}")
             else:
                 reasoning_content = None
                 
@@ -254,20 +254,20 @@ class DeepSeekModel(BaseModel):
                 tool_instructions = self._extract_tool_instructions(content)
                 
                 if tool_instructions and tools:
-                    logger.info(f"Extracted {len(tool_instructions)} tool instructions (legacy format)")
+                    logger.debug(f"Extracted {len(tool_instructions)} tool instructions (legacy format)")
                     
                     # Process all tool instructions and generate multiple tool calls
                     tool_calls = []
                     for instruction in tool_instructions:
-                        logger.info(f"Processing tool instruction: {instruction[:100]}...")
+                        logger.debug(f"Processing tool instruction: {instruction[:100]}...")
                         # Call the tool - this returns OpenAI-formatted tool calls
                         tool_call = await self.tool_helper.call_tool(instruction, tools)
                         if tool_call:
                             tool_calls.append(tool_call)
-                            logger.info(f"Generated tool call: {json.dumps(tool_call)[:100]}...")
+                            logger.debug(f"Generated tool call: {json.dumps(tool_call)[:100]}...")
             
             if tool_calls:
-                logger.info(f"Using {len(tool_calls)} tool calls")
+                logger.debug(f"Using {len(tool_calls)} tool calls")
                 return {
                     "choices": [{
                         "message": {
@@ -426,7 +426,7 @@ class DeepSeekModel(BaseModel):
                 }
             }
             
-            logger.info(f"Extracted tool call: {name}")
+            logger.debug(f"Extracted tool call: {name}")
             return tool_call
             
         except Exception as e:
@@ -488,7 +488,7 @@ class DeepSeekModel(BaseModel):
         """
         self.history.add_user_message(message)
         if self.debug_enabled:
-            logger.info(f"Added user message: {message[:50]}...")
+            logger.debug(f"Added user message: {message[:50]}...")
         
     def add_assistant_message(self, message: str, tool_calls: Optional[List[Dict[str, Any]]] = None) -> None:
         """
@@ -500,7 +500,7 @@ class DeepSeekModel(BaseModel):
         """
         self.history.add_assistant_message(message, tool_calls)
         if self.debug_enabled:
-            logger.info(f"Added assistant message: {message[:50]}...")
+            logger.debug(f"Added assistant message: {message[:50]}...")
         
     def add_tool_result(self, tool_name: str, result: str, tool_call_id: Optional[str] = None) -> None:
         """
@@ -513,4 +513,4 @@ class DeepSeekModel(BaseModel):
         """
         self.history.add_tool_result(tool_name, result, tool_call_id)
         if self.debug_enabled:
-            logger.info(f"Added tool result from {tool_name}: {result[:50]}...") 
+            logger.debug(f"Added tool result from {tool_name}: {result[:50]}...") 

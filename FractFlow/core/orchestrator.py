@@ -87,7 +87,7 @@ class Orchestrator:
         for tool_name, script_path in tools_config.items():
             if os.path.exists(script_path):
                 self.register_tool_provider(tool_name, script_path)
-                logger.info(f"Registered tool provider: {tool_name} from {script_path}")
+                logger.debug(f"Registered tool provider: {tool_name} from {script_path}")
             else:
                 logger.warning(f"Tool script not found: {script_path} for {tool_name}")
                 
@@ -161,11 +161,11 @@ class Orchestrator:
                 try:
                     client_tools = await self.tool_loader.load_tools(session)
                     all_tools.extend(client_tools)
-                    logger.info(f"Loaded {len(client_tools)} tools from client {client_name}")
+                    logger.debug(f"Loaded {len(client_tools)} tools from client {client_name}")
                 except Exception as e:
                     logger.error(f"Error loading tools from client {client_name}: {e}")
             
-            logger.info(f"Loaded a total of {len(all_tools)} tools")
+            logger.debug(f"Loaded a total of {len(all_tools)} tools")
             return all_tools
         except Exception as e:
             error = handle_error(e)
@@ -180,3 +180,14 @@ class Orchestrator:
             The current model instance
         """
         return self.model 
+        
+    def get_history(self) -> List[Dict[str, Any]]:
+        """
+        Get the conversation history from the model.
+        
+        Returns:
+            The current conversation history
+        """
+        if not self.model:
+            return []
+        return self.model.history.get_messages() 

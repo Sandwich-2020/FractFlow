@@ -187,9 +187,9 @@ class LoggerWrapper:
     def info(self, message: str, data: Optional[Dict[str, Any]] = None):
         """Log an info message with optional structured data."""
         if data:
-            self.logger.info(f"{message} {self._format_data(data)}")
+            self.logger.debug(f"{message} {self._format_data(data)}")
         else:
-            self.logger.info(message)
+            self.logger.debug(message)
     
     def debug(self, message: str, data: Optional[Dict[str, Any]] = None):
         """Log a debug message with optional structured data."""
@@ -235,9 +235,9 @@ class LoggerWrapper:
             # Highlight data portion
             formatted_data = " ".join(f"{COLORS['BOLD']}{COLORS['CYAN']}{k.upper()}{COLORS['RESET']}={COLORS['WHITE']}{self._format_value(v)}{COLORS['RESET']}" 
                                     for k, v in data.items()) if self.use_colors else self._format_data(data)
-            self.logger.info(f"{highlighted_msg} {formatted_data}")
+            self.logger.debug(f"{highlighted_msg} {formatted_data}")
         else:
-            self.logger.info(highlighted_msg)
+            self.logger.debug(highlighted_msg)
             
     def result(self, message: str, data: Optional[Dict[str, Any]] = None):
         """

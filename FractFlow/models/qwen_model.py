@@ -72,7 +72,6 @@ class QwenModel(BaseModel):
         try:
             # Debug output for raw history
             raw_history = self.history.format_debug_output()
-            logger.debug(f"Raw conversation history before adaptation:\n{raw_history}")
             
             # Format history for QWEN using the adapter
             formatted_messages = self.history_adapter.format_for_model(
@@ -83,10 +82,9 @@ class QwenModel(BaseModel):
             adapter_debug = self.history_adapter.format_debug_output(
                 formatted_messages, tools, "QWEN INPUT"
             )
-            logger.debug(f"Adapter conversion details:\n{adapter_debug}")
 
             # Call QWEN API with tools
-            logger.info(f"Calling QWEN model: {self.model}")
+            logger.debug(f"Calling QWEN model: {self.model}")
             response = await self._create_chat_completion(
                 model=self.model,
                 messages=formatted_messages,
@@ -99,19 +97,19 @@ class QwenModel(BaseModel):
                 
             # Extract response data
             content = response.choices[0].message.content or ""
-            logger.info(f"Received response from QWEN: {content[:100]}...")
+            logger.debug(f"Received response from QWEN: {content[:100]}...")
             
             # Extract reasoning content if available
             reasoning_content = None
             if hasattr(response.choices[0].message, 'reasoning_content'):
                 reasoning_content = response.choices[0].message.reasoning_content
-                logger.info(f"Reasoning content from QWEN: {reasoning_content}")
+                logger.debug(f"Reasoning content from QWEN: {reasoning_content}")
             
             # Extract tool calls directly from the response
             tool_calls = []
             if hasattr(response.choices[0].message, 'tool_calls') and response.choices[0].message.tool_calls:
                 tool_calls = response.choices[0].message.tool_calls
-                logger.info(f"Tool calls found in response: {len(tool_calls)}")
+                logger.debug(f"Tool calls found in response: {len(tool_calls)}")
                 
                 # Convert tool calls to the expected internal format
                 formatted_tool_calls = []
@@ -170,7 +168,6 @@ class QwenModel(BaseModel):
             message: The user message content
         """
         self.history.add_user_message(message)
-        logger.debug(f"Added user message: {message[:50]}...")
         
     def add_assistant_message(self, message: str, tool_calls: Optional[List[Dict[str, Any]]] = None) -> None:
         """
@@ -181,7 +178,6 @@ class QwenModel(BaseModel):
             tool_calls: Optional list of tool calls made by the assistant
         """
         self.history.add_assistant_message(message, tool_calls)
-        logger.debug(f"Added assistant message: {message[:50]}...")
         
     def add_tool_result(self, tool_name: str, result: str, tool_call_id: Optional[str] = None) -> None:
         """
@@ -193,4 +189,3 @@ class QwenModel(BaseModel):
             tool_call_id: Optional ID of the tool call this is responding to
         """
         self.history.add_tool_result(tool_name, result, tool_call_id)
-        logger.debug(f"Added tool result from {tool_name}: {result[:50]}...") 

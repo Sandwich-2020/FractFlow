@@ -39,7 +39,7 @@ class MCPLauncher:
             raise FileNotFoundError(f"Server script not found: {script_path}")
             
         self.server_paths[server_name] = script_path
-        logger.info(f"Registered server '{server_name}' at {script_path}")
+        logger.debug(f"Registered server '{server_name}' at {script_path}")
         
     async def launch_all(self) -> None:
         """
@@ -48,13 +48,13 @@ class MCPLauncher:
         Raises:
             Exception: If any server fails to launch
         """
-        logger.info(f"Launching {len(self.server_paths)} MCP servers...")
+        logger.debug(f"Launching {len(self.server_paths)} MCP servers...")
         
         try:
             for server_name, script_path in self.server_paths.items():
                 await self.client_pool.add_client(server_name, script_path)
                 
-            logger.info("All MCP servers launched successfully")
+            logger.debug("All MCP servers launched successfully")
         except Exception as e:
             logger.error(f"Error launching MCP servers: {e}")
             raise
@@ -68,7 +68,7 @@ class MCPLauncher:
         """
         try:
             await self.client_pool.cleanup()
-            logger.info("All MCP servers and clients shut down")
+            logger.debug("All MCP servers and clients shut down")
         except Exception as e:
             logger.error(f"Error shutting down MCP servers: {e}")
             raise 

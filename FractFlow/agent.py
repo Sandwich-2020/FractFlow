@@ -50,7 +50,7 @@ class Agent:
         self._query_processor = None
         self._tool_executor = None
         self._is_initialized = False
-    
+        self.logger = logging.getLogger(name)
     def get_config(self) -> Dict[str, Any]:
         """
         Get the current configuration.
@@ -131,4 +131,15 @@ class Agent:
         
         # Process the query
         result = await self._query_processor.process_query(query)
+        self.logger.info(self.get_history())
         return result 
+        
+    def get_history(self) -> List[Dict[str, Any]]:
+        """
+        Get the conversation history from the current session.
+        
+        Returns:
+            The current conversation history as a list of message dictionaries
+        """
+        self._ensure_initialized()
+        return self._query_processor.get_history() 

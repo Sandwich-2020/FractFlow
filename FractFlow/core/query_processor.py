@@ -58,7 +58,7 @@ class QueryProcessor:
             model = self.orchestrator.get_model()
             
             # Add user message to history
-            logger.info("Processing user query", {"query": user_query})
+            logger.debug("Processing user query", {"query": user_query})
             model.add_user_message(user_query)
             
             # Get the tools schema
@@ -69,7 +69,7 @@ class QueryProcessor:
             
             # Main agent loop
             for iteration in range(self.max_iterations):
-                logger.info("Starting iteration", {"current": iteration+1, "max": self.max_iterations})
+                logger.debug("Starting iteration", {"current": iteration+1, "max": self.max_iterations})
                 
                 # Get response from model
                 response = await model.execute(tools)
@@ -82,7 +82,7 @@ class QueryProcessor:
                 reasoning_content = message.get("reasoning_content")
                 if reasoning_content:
                     truncated_reasoning = str(reasoning_content)[:500] + ("..." if len(str(reasoning_content)) > 500 else "")
-                    logger.info("Reasoning content", {"reasoning": truncated_reasoning})
+                    logger.debug("Reasoning content", {"reasoning": truncated_reasoning})
                 
                 # If there are no tool calls, return final answer
                 if not tool_calls:
@@ -123,14 +123,14 @@ class QueryProcessor:
                             logger.warning("Tool call missing 'name' field")
                             continue
                         
-                        logger.info("Calling tool", {"name": tool_name, "args": function_args})
+                        logger.debug("Calling tool", {"name": tool_name, "args": function_args})
                         
                         # Call the tool
                         try:
                             result = await self.tool_executor.execute_tool(tool_name, function_args)
                             # Add truncated tool execution result log
                             truncated_result = str(result)[:200] + ("..." if len(str(result)) > 200 else "")
-                            logger.info("Tool execution result", {"tool": tool_name, "result": truncated_result})
+                            logger.debug("Tool execution result", {"tool": tool_name, "result": truncated_result})
                             # Add result to conversation history
                             model.add_tool_result(tool_name, result, tool_call_id)
                                 
@@ -154,4 +154,13 @@ class QueryProcessor:
             # If model is initialized, log conversation history when error occurs
             if 'model' in locals() and hasattr(model, 'history'):
                 model.history.log_history(logging.ERROR, "ERROR in process_query")
-            return f"Sorry, there was a technical problem processing your request. Error: {str(error)}" 
+            return f"Sorry, there was a technical problem processing your request. Error: {str(error)}"
+
+    def get_history(self) -> List[Dict[str, Any]]:
+        """
+        Get the conversation history from the current model.
+        
+        Returns:
+            The current conversation history
+        """
+        return self.orchestrator.get_history() 
