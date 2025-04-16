@@ -19,7 +19,7 @@ async def main():
     agent = Agent()
     config = agent.get_config()
     config['agent']['provider'] = 'qwen'
-    config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
+    config['agent']['custom_system_prompt'] = '你是一个有用的助手，在回复用户时请尽可能提供详细信息。请在思考过程中展示你的推理过程。'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
     config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
@@ -38,6 +38,8 @@ async def main():
         
         # Initialize agent
         await ui.initialize()
+        
+        print("FractFlow UI started. Visit http://localhost:8080 in your browser")
         
         # Run the UI server
         FractFlowUI.run()
