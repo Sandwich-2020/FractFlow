@@ -24,13 +24,13 @@ async def main():
     config['deepseek']['model'] = 'deepseek-chat'
     config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
     config['qwen']['base_url'] = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-    config['agent']['max_iterations'] = 100
+    config['agent']['max_iterations'] = 2
     
     # Set configuration
     agent.set_config(config)
     
     # Add tools
-    agent.add_tool("./tools/forecast.py")
+    agent.add_tool("./tools/image_io.py")
     
     try:
         # Create UI
