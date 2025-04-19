@@ -34,7 +34,7 @@ For multiple tool calls, you can use:
 ```
 If no tools are needed, simply provide a direct answer or explanation.
 
-REMEMBER: ONLY USE TOOL THAT ARE AVAILABLE IN THE TOOLS LIST.
+REMEMBER: ONLY USE TOOL THAT ARE AVAILABLE. Do not "simulate" to use tools.
 """
 
 # Default personality component that can be customized

@@ -91,8 +91,7 @@ class DeepSeekHistoryAdapter(HistoryAdapter):
         descriptions = []
         
         # Add a concise guide for tool calling at the beginning
-        format_explanation = """To call these tools, include a JSON object with the tool name and arguments somewhere in your response.
-Examples: {"name": "tool_name", "arguments": {...}} or {"tool_call": {"name": "tool_name", "arguments": {...}}}
+        format_explanation = """Note that ONLY the following tools are available:
 """
         descriptions.append(format_explanation)
         
@@ -116,19 +115,9 @@ Examples: {"name": "tool_name", "arguments": {...}} or {"tool_call": {"name": "t
                 
             param_text = "\n".join(param_desc) if param_desc else "  No parameters"
             
-            # Create a simple example with actual parameter names
-            example_args = {}
-            for param_name in params:
-                if param_name in required_params:
-                    if params[param_name].get("type") == "number" or params[param_name].get("type") == "integer":
-                        example_args[param_name] = 0
-                    else:
-                        example_args[param_name] = f"<{param_name}>"
-            
-            example = f"""Example: {{"name": "{name}", "arguments": {json.dumps(example_args)}}}"""
                 
             # Combine all into the tool description
-            descriptions.append(f"Tool: {name}\nDescription: {description}\nParameters:\n{param_text}\n{example}")
+            descriptions.append(f"**Available Tool**: {name}\nDescription: {description}\nParameters:\n{param_text}")
             
         return "\n\n".join(descriptions)
     

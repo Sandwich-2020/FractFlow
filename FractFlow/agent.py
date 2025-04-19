@@ -25,7 +25,7 @@ import logging
 from FractFlow.infra.logging_utils import setup_logging
 
 # Set up colored logs
-setup_logging(level=logging.INFO, use_colors=True)
+setup_logging(level=logging.DEBUG, use_colors=True)
 
 class Agent:
     """
@@ -83,7 +83,7 @@ class Agent:
             raise ValueError(f"Tool script not found: {tool_path}")
         
         if tool_name is None:
-            tool_name = os.path.basename(os.path.dirname(tool_path))
+            tool_name = os.path.basename(tool_path)
         
         self.tool_configs[tool_name] = tool_path
     

@@ -31,7 +31,7 @@ def create_model(provider: Optional[str] = None) -> BaseModel:
         if config.get('deepseek.model') == 'deepseek-reasoner':
             from .deepseek_model_reasoner import DeepSeekModel
         else:
-            from .deepseek_model import DeepSeekModel
+            from .deepseek_model_reasoner import DeepSeekModel
         return DeepSeekModel()
     elif provider == 'qwen':
         from .qwen_model import QwenModel

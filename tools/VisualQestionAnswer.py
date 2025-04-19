@@ -5,7 +5,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 load_dotenv()
 # Initialize FastMCP server
-mcp = FastMCP("image io")
+mcp = FastMCP("Visual_Question_Answering")
 
 from PIL import Image
 import base64
@@ -36,14 +36,24 @@ def load_image(image_path: str, size_limit: tuple[int, int] = (512, 512)) -> tup
     return base64_image, meta_info
 
 @mcp.tool()
-async def understand_image_with_vlm(image_path: str, prompt: str) -> str:
+async def Visual_Question_Answering(image_path: str, prompt: str) -> str:
     '''
-    Understand an image with VLM
+    Understand or analyze an image using a Vision-Language Model (VLM).
+    
+    This tool uses Qwen-VL-Plus model to perform visual question answering or image analysis.
+    The image is automatically resized to a maximum of 512x512 pixels before processing.
+    
     Args:
-        image_path: Path to the image file to process
-        prompt: Prompt to process the image with
+        image_path (str): Full path to the image file to process. The path should be accessible
+                          by the system and point to a valid image file (e.g., JPG, PNG).
+        prompt (str): Text prompt describing what you want to know about the image. This can be:
+                     - A direct question about the image content (e.g., "What objects are in this image?")
+                     - A request for detailed description (e.g., "Describe this image in detail")
+                     - A specific analytical instruction (e.g., "Count the number of people in this image")
+    
     Returns:
-        
+        str: A detailed text response from the VLM model analyzing the image according to the prompt.
+             The response format depends on the nature of the prompt.
     '''
 
     base64_image, meta_info = load_image(image_path, (512, 512))
