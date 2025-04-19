@@ -38,8 +38,6 @@ def load_image(image_path: str, size_limit: tuple[int, int] = (512, 512)) -> tup
 @mcp.tool()
 async def Visual_Question_Answering(image_path: str, prompt: str) -> str:
     '''
-    Understand or analyze an image using a Vision-Language Model (VLM).
-    
     This tool uses Qwen-VL-Plus model to perform visual question answering or image analysis.
     The image is automatically resized to a maximum of 512x512 pixels before processing.
     

@@ -20,25 +20,22 @@ from ..conversation.provider_adapters.deepseek_adapter import DeepSeekHistoryAda
 logger = logging.getLogger(__name__)
 config = ConfigManager()
 
-# Define the tool calling instructions as a constant - this part is required for function calling to work
-TOOL_CALLING_INSTRUCTIONS = """When tools are needed, include a JSON-formatted tool call anywhere in your response. You can use code blocks or inline JSON. The tool call should include the tool name and required arguments.
+# Instructions for the main reasoner model on how to request a tool call
+TOOL_REQUEST_INSTRUCTIONS = """When you determine that a tool is needed to answer the user's request or perform an action, you MUST issue a tool request instruction. 
+Do NOT attempt to generate the final tool call JSON yourself.
 
-Common formats include:
-```json
-{"tool_call": {"name": "tool_name", "arguments": {"param1": "value1"}}}
-```
+To request a tool call, include the following tag anywhere in your response, containing the specific instruction for the tool:
+<tool_request>Instruction text for the tool call expert here.</tool_request>
 
-For multiple tool calls, you can use:
-```json
-{"tool_calls": [{"name": "tool1", "arguments": {...}}, {"name": "tool2", "arguments": {...}}]}
-```
-If no tools are needed, simply provide a direct answer or explanation.
+For example:
+User: What's the weather in London?
+Assistant: Okay, I can find that for you.
+<tool_request>Get the current weather for London, UK.</tool_request>
 
-REMEMBER: ONLY USE TOOL THAT ARE AVAILABLE. Do not "simulate" to use tools.
-"""
+If no tool is needed, simply provide a direct answer or explanation without the <tool_request> tag."""
 
 # Default personality component that can be customized
-DEFAULT_PERSONALITY = "You are an intelligent assistant. When users need specific information, you should use available tools to obtain it."
+DEFAULT_PERSONALITY = "You are an intelligent assistant. You carefully analyze user requests and determine if external tools are needed."
 
 class DeepSeekToolCallingHelper:
     """
@@ -55,6 +52,7 @@ class DeepSeekToolCallingHelper:
             api_key=config.get('deepseek.api_key')
         )
         self.model = config.get('deepseek.tool_calling_model', 'deepseek-chat')
+        self.max_retries = 5  # Maximum number of retries for tool calls
         
     def create_system_prompt(self, tools: List[Dict[str, Any]]) -> str:
         """
@@ -66,39 +64,97 @@ class DeepSeekToolCallingHelper:
         Returns:
             System prompt for the tool calling model
         """
-        tools_description = "\n".join(
-            f"- {tool['function']['name']}: {tool['function']['description']}"
-            for tool in tools
-        )
+        # List all available tools with names and descriptions
+        tool_details = []
+        for tool in tools:
+            tool_name = tool['function']['name']
+            description = tool['function'].get('description', 'No description available')
+            
+            # List all parameters for this tool
+            params = tool['function'].get('parameters', {}).get('properties', {})
+            param_list = ", ".join(params.keys()) if params else "No parameters"
+            
+            tool_details.append(f"- {tool_name}: {description}\n  Parameters: {param_list}")
         
-        return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls.
+        tools_text = "\n".join(tool_details)
+        
+        return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls based ONLY on the tools that are available.
 
-Available tools:
-{tools_description}
+AVAILABLE TOOLS (ONLY USE THESE - DO NOT INVENT NEW ONES):
+{tools_text}
+
+IMPORTANT RULES:
+1. ONLY use tool names from the list above - never invent new tool names
+2. ONLY use parameter names that are listed for each tool - never invent new parameters
+3. If a requested tool doesn't exactly match any available tool, use the closest matching one
 
 You must output strictly in the following JSON format:
 {{
-    "name": "tool_name",
-    "arguments": {{
-        "parameter_name": "parameter_value"
+    "function": {{
+        "name": "tool_name",
+        "arguments": "{{\\\"parameter_name\\\": \\\"parameter_value\\\"}}",
     }}
 }}
 
-Output JSON only, no other text."""
+Output JSON only, no other text. The arguments must be a valid JSON string (with escaped quotes)."""
 
     async def call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
-        Execute a tool call using DeepSeek models.
+        Execute a tool call using DeepSeek models with retry mechanism.
         
         Args:
             instruction: The instruction to execute
             tools: List of available tools
             
         Returns:
-            Tool call result in OpenAI format or None if failed
+            Tool call result in OpenAI format or None if all retries failed
+        """
+        available_tools = [tool['function']['name'] for tool in tools]
+        
+        # Try multiple times to get a valid tool call
+        for attempt in range(self.max_retries):
+            try:
+                logger.debug(f"Tool call attempt {attempt+1}/{self.max_retries}")
+                
+                # Call the internal method to get a tool call
+                tool_call = await self._internal_call_tool(instruction, tools)
+                
+                # Skip if no response was received
+                if not tool_call:
+                    logger.warning(f"No response from model on attempt {attempt+1}")
+                    continue
+                
+                # Validate the tool call
+                if not self._validate_tool_call(tool_call, available_tools):
+                    logger.warning(f"Invalid tool call on attempt {attempt+1}: {tool_call}")
+                    continue
+                
+                # If we got here, the tool call is valid
+                logger.debug(f"Valid tool call generated on attempt {attempt+1}")
+                return tool_call
+                
+            except Exception as e:
+                error = handle_error(e, {"instruction": instruction, "attempt": attempt+1})
+                logger.error(f"Error on tool call attempt {attempt+1}: {error}")
+                # Continue to the next attempt rather than failing immediately
+        
+        # If we exhausted all retries without success
+        logger.error(f"Failed to generate valid tool call after {self.max_retries} attempts")
+        return None
+    
+    async def _internal_call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Internal method to call the DeepSeek model and get a tool call response.
+        
+        Args:
+            instruction: The instruction to execute
+            tools: List of available tools
+            
+        Returns:
+            Raw tool call from the model or None if failed
         """
         try:
-            # Using DeepSeek's JSON output format capability
+            # Call DeepSeek with JSON output format
             response = await self._create_chat_completion(
                 model=self.model,
                 messages=[
@@ -113,39 +169,78 @@ Output JSON only, no other text."""
                 
             content = response.choices[0].message.content.strip()
             
+            # Parse the JSON response
             try:
-                # Parse the original simple tool call format
-                simple_tool_call = json.loads(content)
-                if "name" not in simple_tool_call or "arguments" not in simple_tool_call:
-                    logger.error("Invalid tool call format")
-                    return None
+                model_response = json.loads(content)
                 
-                # Convert to OpenAI format
+                # Add the ID and type fields if the model didn't provide them
                 call_id = f"call_{str(uuid.uuid4())[:8]}"
-                arguments = simple_tool_call["arguments"]
-                # Ensure arguments is a JSON string
-                if not isinstance(arguments, str):
-                    arguments = json.dumps(arguments)
-                
-                # Create tool call in OpenAI format
                 tool_call = {
                     "id": call_id,
                     "type": "function",
-                    "function": {
-                        "name": simple_tool_call["name"],
-                        "arguments": arguments
-                    }
+                    "function": model_response.get("function", {})
                 }
                 
                 return tool_call
             except json.JSONDecodeError as e:
-                logger.error(f"JSON parsing error: {e}")
+                logger.error(f"JSON parsing error: {e}\nContent: {content[:100]}...")
                 return None
                 
         except Exception as e:
             error = handle_error(e, {"instruction": instruction})
-            logger.error(f"Tool calling error: {error}")
+            logger.error(f"Internal tool calling error: {error}")
             return None
+    
+    def _validate_tool_call(self, tool_call: Dict[str, Any], available_tools: List[str]) -> bool:
+        """
+        Validate that a tool call has the correct format and references an available tool.
+        
+        Args:
+            tool_call: The tool call to validate
+            available_tools: List of available tool names
+            
+        Returns:
+            True if the tool call is valid, False otherwise
+        """
+        # Check that the required fields are present
+        if not isinstance(tool_call, dict):
+            logger.error("Tool call is not a dictionary")
+            return False
+            
+        if "type" not in tool_call or tool_call["type"] != "function":
+            logger.error("Tool call is not a function call")
+            return False
+            
+        if "function" not in tool_call or not isinstance(tool_call["function"], dict):
+            logger.error("Tool call has no function object")
+            return False
+            
+        function = tool_call["function"]
+        if "name" not in function or "arguments" not in function:
+            logger.error("Function object missing name or arguments")
+            return False
+            
+        # Verify that the tool exists
+        tool_name = function["name"]
+        if tool_name not in available_tools:
+            logger.error(f"Tool '{tool_name}' not in available tools: {available_tools}")
+            return False
+            
+        # Verify that the arguments is a valid JSON string
+        arguments = function["arguments"]
+        if not isinstance(arguments, str):
+            logger.error("Arguments must be a string")
+            return False
+            
+        try:
+            # Attempt to parse the arguments as JSON
+            json.loads(arguments)
+        except json.JSONDecodeError:
+            logger.error(f"Arguments is not valid JSON: {arguments[:100]}...")
+            return False
+            
+        # Everything looks good
+        return True
             
     async def _create_chat_completion(self, **kwargs) -> Any:
         """
@@ -187,7 +282,7 @@ class DeepSeekModel(BaseModel):
         custom_system_prompt = config.get('agent.custom_system_prompt', DEFAULT_PERSONALITY)
         
         # Combine the custom prompt with the required tool calling instructions
-        complete_system_prompt = f"{custom_system_prompt}\n\n{TOOL_CALLING_INSTRUCTIONS}"
+        complete_system_prompt = f"{custom_system_prompt}\n\n{TOOL_REQUEST_INSTRUCTIONS}"
         
         # Create conversation history with the complete system prompt
         self.history = ConversationHistory(complete_system_prompt)
@@ -199,6 +294,8 @@ class DeepSeekModel(BaseModel):
     async def execute(self, tools: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Execute the model with the current conversation history.
+        The model decides if a tool is needed and provides an instruction.
+        If an instruction is found, it's passed to the tool_helper for robust generation.
         
         Args:
             tools: List of tools available to the model
@@ -213,253 +310,83 @@ class DeepSeekModel(BaseModel):
                 logger.debug(f"Raw conversation history before adaptation:\n{raw_history}")
             
             # Format history for DeepSeek using the adapter
+            # Pass tools=None here, as the main model only generates instructions, not calls
             formatted_messages = self.history_adapter.format_for_model(
-                self.history.get_messages(), tools
+                self.history.get_messages(), tools=None  
             )
             
             # Debug output for formatted history
             if self.debug_enabled:
                 adapter_debug = self.history_adapter.format_debug_output(
-                    formatted_messages, tools, "DEEPSEEK INPUT"
+                    formatted_messages, None, "DEEPSEEK REASONER INPUT"
                 )
                 logger.debug(f"Adapter conversion details:\n{adapter_debug}")
 
             # Get model response
-            logger.debug(f"Calling DeepSeek model: {self.model}")
+            logger.debug(f"Calling DeepSeek reasoner model: {self.model}")
             response = await self._create_chat_completion(
                 model=self.model,
                 messages=formatted_messages
             )
             
             if not response or not response.choices:
-                logger.error("Failed to get response from DeepSeek model")
+                logger.error("Failed to get response from DeepSeek reasoner model")
                 return create_error_response(LLMError("Failed to get response from model"))
                 
             content = response.choices[0].message.content
-            logger.debug(f"Received response from DeepSeek: {content[:100]}...")
+            logger.debug(f"Received response from reasoner: {content[:200]}...")
             
-            # 获取和记录reasoning_content
+            # Extract reasoning content if available
             reasoning_content = None
             if hasattr(response.choices[0].message, 'reasoning_content'):
                 reasoning_content = response.choices[0].message.reasoning_content
-                logger.debug(f"Reasoning content from DeepSeek: {reasoning_content}")
-            else:
-                reasoning_content = None
-                
-            # Check if the response contains direct JSON tool calls
-            tool_calls = self._extract_json_tool_calls(content) 
+                logger.debug(f"Reasoning content from reasoner: {reasoning_content}")
+
+            # --- New Tool Calling Logic ---
+            tool_calls = None
+            tool_instruction = None
             
-            # Legacy support: check for TOOL_INSTRUCTION format if no JSON tool calls found
-            if not tool_calls:
-                tool_instructions = self._extract_tool_instructions(content)
+            # Search for the <tool_request> tag
+            match = re.search(r"<tool_request>(.*?)</tool_request>", content, re.DOTALL)
+            
+            if match:
+                tool_instruction = match.group(1).strip()
+                logger.info(f"Found tool request instruction: {tool_instruction[:100]}...")
                 
-                if tool_instructions and tools:
-                    logger.debug(f"Extracted {len(tool_instructions)} tool instructions (legacy format)")
+                if tools:
+                    # Pass the instruction to the robust tool calling helper
+                    logger.debug("Invoking tool_helper to generate validated tool call...")
+                    validated_tool_call = await self.tool_helper.call_tool(tool_instruction, tools)
                     
-                    # Process all tool instructions and generate multiple tool calls
-                    tool_calls = []
-                    for instruction in tool_instructions:
-                        logger.debug(f"Processing tool instruction: {instruction[:100]}...")
-                        # Call the tool - this returns OpenAI-formatted tool calls
-                        tool_call = await self.tool_helper.call_tool(instruction, tools)
-                        if tool_call:
-                            tool_calls.append(tool_call)
-                            logger.debug(f"Generated tool call: {json.dumps(tool_call)[:100]}...")
-            
-            if tool_calls:
-                logger.debug(f"Using {len(tool_calls)} tool calls")
-                return {
-                    "choices": [{
-                        "message": {
-                            "content": content,
-                            "tool_calls": tool_calls,
-                            "reasoning_content": reasoning_content
-                        }
-                    }]
-                }
+                    if validated_tool_call:
+                        tool_calls = [validated_tool_call]  # Expecting one call for now
+                        logger.info(f"Helper generated tool call: {json.dumps(tool_calls)[:100]}...")
+                    else:
+                        logger.error("Tool helper failed to generate a valid tool call after retries.")
+                        # Decide how to handle this - maybe return an error message in content?
+                        # For now, we just won't have a tool_call
+                        pass 
+                else:
+                    logger.warning("Tool request found, but no tools were provided to execute.")
             else:
-                # Direct response without tool call
-                return {
-                    "choices": [{
-                        "message": {
-                            "content": content,
-                            "tool_calls": None, 
-                            "reasoning_content": reasoning_content
-                        }
-                    }]
-                }
+                logger.debug("No <tool_request> tag found in the response.")
+            # --- End New Tool Calling Logic ---
+
+            # Return the response, potentially including the validated tool calls
+            return {
+                "choices": [{
+                    "message": {
+                        "content": content, # Keep original content, including the tag for now
+                        "tool_calls": tool_calls, 
+                        "reasoning_content": reasoning_content
+                    }
+                }]
+            }
                 
         except Exception as e:
             error = handle_error(e)
-            logger.error(f"Error in user interaction: {error}")
+            logger.error(f"Error in model execution: {error}")
             return create_error_response(error)
-
-    def _extract_json_tool_calls(self, content: str) -> List[Dict[str, Any]]:
-        """
-        Extract JSON-formatted tool calls from content.
-        
-        Args:
-            content: Content to extract tool calls from
-            
-        Returns:
-            List of extracted tool calls in OpenAI format
-        """
-        tool_calls = []
-        
-        # First try to extract code blocks with json marker
-        json_blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)```", content, re.DOTALL)
-        
-        # If no code blocks found, try to extract any JSON-like structures
-        if not json_blocks:
-            # Look for potential JSON objects anywhere in the content
-            potential_jsons = re.findall(r"\{[\s\S]*?\}", content, re.DOTALL)
-            json_blocks.extend(potential_jsons)
-        
-        # Process all extracted blocks
-        for block in json_blocks:
-            try:
-                # Clean up the block (remove leading/trailing whitespace)
-                block = block.strip()
-                
-                # Parse the JSON
-                parsed_json = json.loads(block)
-                
-                # Extract tool calls using different strategies
-                extracted_calls = self._extract_tool_calls_from_json(parsed_json)
-                if extracted_calls:
-                    tool_calls.extend(extracted_calls)
-                    
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse JSON from content block: {block[:50]}...")
-                continue
-        
-        return tool_calls
-    
-    def _extract_tool_calls_from_json(self, json_obj: Any) -> List[Dict[str, Any]]:
-        """
-        Extract tool calls from parsed JSON using multiple strategies.
-        Supports various JSON structures that might contain tool calls.
-        
-        Args:
-            json_obj: Parsed JSON object (could be dict, list, or other structure)
-            
-        Returns:
-            List of extracted tool calls in OpenAI format
-        """
-        extracted_calls = []
-        
-        # Strategy 1: Standard format with "tool_call" at root
-        if isinstance(json_obj, dict) and "tool_call" in json_obj:
-            tool_call = self._convert_to_openai_format(json_obj["tool_call"])
-            if tool_call:
-                extracted_calls.append(tool_call)
-                
-        # Strategy 2: Array format with "tool_calls" at root
-        elif isinstance(json_obj, dict) and "tool_calls" in json_obj and isinstance(json_obj["tool_calls"], list):
-            for item in json_obj["tool_calls"]:
-                if isinstance(item, dict):
-                    # Case 2.1: Nested tool_call format
-                    if "tool_call" in item:
-                        tool_call = self._convert_to_openai_format(item["tool_call"])
-                    # Case 2.2: Direct tool call format
-                    else:
-                        tool_call = self._convert_to_openai_format(item)
-                        
-                    if tool_call:
-                        extracted_calls.append(tool_call)
-        
-        # Strategy 3: Direct array of tool calls
-        elif isinstance(json_obj, list):
-            for item in json_obj:
-                if isinstance(item, dict):
-                    # Try both as a container or direct tool call
-                    if "tool_call" in item:
-                        tool_call = self._convert_to_openai_format(item["tool_call"])
-                    else:
-                        tool_call = self._convert_to_openai_format(item)
-                        
-                    if tool_call:
-                        extracted_calls.append(tool_call)
-        
-        # Strategy 4: Check for any format with required fields
-        elif isinstance(json_obj, dict) and "name" in json_obj and "arguments" in json_obj:
-            tool_call = self._convert_to_openai_format(json_obj)
-            if tool_call:
-                extracted_calls.append(tool_call)
-                
-        return extracted_calls
-    
-    def _convert_to_openai_format(self, tool_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """
-        Convert a tool call object to the OpenAI format.
-        
-        Args:
-            tool_info: Tool information containing at least name and arguments
-            
-        Returns:
-            Tool call in OpenAI format or None if invalid
-        """
-        if not isinstance(tool_info, dict) or "name" not in tool_info or "arguments" not in tool_info:
-            return None
-            
-        try:
-            # Generate a unique ID for this call
-            call_id = f"call_{str(uuid.uuid4())[:8]}"
-            
-            # Extract function name
-            name = tool_info["name"]
-            
-            # Extract and process arguments
-            arguments = tool_info["arguments"]
-            
-            # Ensure arguments is a JSON string
-            if not isinstance(arguments, str):
-                arguments = json.dumps(arguments)
-            
-            # Create tool call in OpenAI format
-            tool_call = {
-                "id": call_id,
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "arguments": arguments
-                }
-            }
-            
-            logger.debug(f"Extracted tool call: {name}")
-            return tool_call
-            
-        except Exception as e:
-            logger.warning(f"Failed to convert tool info to OpenAI format: {str(e)}")
-            return None
-
-    def _extract_tool_instructions(self, content: str) -> List[str]:
-        """
-        Extract all tool calling instructions from content.
-        
-        Args:
-            content: Content to extract tool instructions from
-            
-        Returns:
-            List of extracted tool instructions
-        """
-        pattern = r"TOOL_INSTRUCTION\n(.*?)\nEND_INSTRUCTION"
-        matches = re.findall(pattern, content, re.DOTALL)
-        return [match.strip() for match in matches] if matches else []
-
-    def _extract_tool_instruction(self, content: str) -> Optional[str]:
-        """
-        Extract first tool calling instruction from content (legacy support).
-        
-        Args:
-            content: Content to extract tool instruction from
-            
-        Returns:
-            Extracted tool instruction or None if not found
-        """
-        pattern = r"TOOL_INSTRUCTION\n(.*?)\nEND_INSTRUCTION"
-        match = re.search(pattern, content, re.DOTALL)
-        return match.group(1).strip() if match else None
 
     async def _create_chat_completion(self, **kwargs) -> Any:
         """
