@@ -33,16 +33,17 @@ async def main():
     # config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
-    # config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
-    # config['qwen']['base_url'] = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+    config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
+    config['qwen']['base_url'] = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 5  # Properly set as nested value
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
     # Add tools to the agent
-    agent.add_tool("./tools/ComfyUITool.py")
-    agent.add_tool("./tools/VisualQestionAnswer.py")
+    # agent.add_tool("./tools/ComfyUITool.py")
+    # agent.add_tool("./tools/VisualQestionAnswer.py")
+    agent.add_tool("./tools/forecast.py")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()
