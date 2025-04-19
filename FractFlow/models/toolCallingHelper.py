@@ -29,13 +29,12 @@ class DeepSeekToolCallingHelper:
         self.model = config.get('deepseek.tool_calling_model', 'deepseek-chat')
         self.max_retries = 5  # Maximum number of retries for tool calls
         
-    def create_system_prompt(self, tools: List[Dict[str, Any]], allow_multiple: bool = True) -> str:
+    def create_system_prompt(self, tools: List[Dict[str, Any]]) -> str:
         """
         Create a system prompt for JSON tool calling.
         
         Args:
             tools: List of available tools
-            allow_multiple: Whether to allow generating multiple tool calls
             
         Returns:
             System prompt for the tool calling model
@@ -54,9 +53,8 @@ class DeepSeekToolCallingHelper:
         
         tools_text = "\n".join(tool_details)
         
-        if allow_multiple:
-            # Prompt for generating multiple tool calls
-            return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls based ONLY on the tools that are available.
+        # Always use the multiple tool calls format
+        return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls based ONLY on the tools that are available.
 
 AVAILABLE TOOLS (ONLY USE THESE - DO NOT INVENT NEW ONES):
 {tools_text}
@@ -66,6 +64,7 @@ IMPORTANT RULES:
 2. ONLY use parameter names that are listed for each tool - never invent new parameters
 3. If a requested tool doesn't exactly match any available tool, use the closest matching one
 4. YOU CAN USE MULTIPLE TOOLS OR THE SAME TOOL MULTIPLE TIMES if the request requires it
+5. If only one tool is needed, still use the proper array format with a single element
 
 You must output strictly in the following JSON format:
 {{
@@ -86,38 +85,17 @@ You must output strictly in the following JSON format:
 }}
 
 The number of tool calls in the array should match exactly what's needed - don't add unnecessary calls.
-Output JSON only, no other text. The arguments must be a valid JSON string (with escaped quotes)."""
-        else:
-            # Original prompt for single tool call
-            return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls based ONLY on the tools that are available.
-
-AVAILABLE TOOLS (ONLY USE THESE - DO NOT INVENT NEW ONES):
-{tools_text}
-
-IMPORTANT RULES:
-1. ONLY use tool names from the list above - never invent new tool names
-2. ONLY use parameter names that are listed for each tool - never invent new parameters
-3. If a requested tool doesn't exactly match any available tool, use the closest matching one
-
-You must output strictly in the following JSON format:
-{{
-    "function": {{
-        "name": "tool_name",
-        "arguments": "{{\\\"parameter_name\\\": \\\"parameter_value\\\"}}",
-    }}
-}}
-
+For simple requests needing only one tool call, return an array with just one element.
 Output JSON only, no other text. The arguments must be a valid JSON string (with escaped quotes)."""
 
-    async def call_tool(self, instruction: str, tools: List[Dict[str, Any]], allow_multiple: bool = True) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    async def call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Execute a tool call using DeepSeek models with retry mechanism.
-        Can generate multiple tool calls if allow_multiple is True.
+        Can generate multiple tool calls from a single instruction.
         
         Args:
             instruction: The instruction to execute
             tools: List of available tools
-            allow_multiple: Whether to allow generating multiple tool calls
             
         Returns:
             Tuple containing:
@@ -140,52 +118,33 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                 logger.debug(f"Tool call attempt {attempt+1}/{self.max_retries}")
                 
                 # Call the internal method to get tool calls
-                result = await self._internal_call_tool(instruction, tools, allow_multiple)
+                tool_calls = await self._internal_call_tool(instruction, tools)
                 
                 # Skip if no response was received
-                if not result:
+                if not tool_calls:
                     logger.warning(f"No response from model on attempt {attempt+1}")
                     continue
                 
-                # For single tool call
-                if not allow_multiple:
-                    tool_call = result
-                    stats["total_calls"] = 1
-                    
-                    # Validate the single tool call
-                    if self._validate_tool_call(tool_call, available_tools):
-                        logger.debug(f"Valid tool call generated on attempt {attempt+1}")
-                        stats["valid_calls"] = 1
-                        stats["success"] = True
-                        return [tool_call], stats
+                stats["total_calls"] = len(tool_calls)
+                
+                # Validate each tool call and keep valid ones
+                valid_tool_calls = []
+                for i, call in enumerate(tool_calls):
+                    if self._validate_tool_call(call, available_tools):
+                        valid_tool_calls.append(call)
+                        stats["valid_calls"] += 1
                     else:
-                        logger.warning(f"Invalid tool call on attempt {attempt+1}: {tool_call}")
-                        stats["invalid_calls"] = 1
-                        continue
-                        
-                # For multiple tool calls
+                        logger.warning(f"Invalid tool call {i+1} on attempt {attempt+1}: {call}")
+                        stats["invalid_calls"] += 1
+                
+                # If we have at least one valid call, consider it a success
+                if valid_tool_calls:
+                    logger.debug(f"Generated {len(valid_tool_calls)} valid tool calls on attempt {attempt+1}")
+                    stats["success"] = True
+                    return valid_tool_calls, stats
                 else:
-                    tool_calls = result
-                    stats["total_calls"] = len(tool_calls)
-                    
-                    # Validate each tool call and keep valid ones
-                    valid_tool_calls = []
-                    for i, call in enumerate(tool_calls):
-                        if self._validate_tool_call(call, available_tools):
-                            valid_tool_calls.append(call)
-                            stats["valid_calls"] += 1
-                        else:
-                            logger.warning(f"Invalid tool call {i+1} on attempt {attempt+1}: {call}")
-                            stats["invalid_calls"] += 1
-                    
-                    # If we have at least one valid call, consider it a success
-                    if valid_tool_calls:
-                        logger.debug(f"Generated {len(valid_tool_calls)} valid tool calls on attempt {attempt+1}")
-                        stats["success"] = True
-                        return valid_tool_calls, stats
-                    else:
-                        logger.warning(f"No valid tool calls on attempt {attempt+1}")
-                        continue
+                    logger.warning(f"No valid tool calls on attempt {attempt+1}")
+                    continue
                 
             except Exception as e:
                 error = handle_error(e, {"instruction": instruction, "attempt": attempt+1})
@@ -197,24 +156,23 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
         stats["success"] = False
         return [], stats
     
-    async def _internal_call_tool(self, instruction: str, tools: List[Dict[str, Any]], allow_multiple: bool = False) -> Optional[Any]:
+    async def _internal_call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
         """
         Internal method to call the DeepSeek model and get tool call responses.
         
         Args:
             instruction: The instruction to execute
             tools: List of available tools
-            allow_multiple: Whether to allow generating multiple tool calls
             
         Returns:
-            Single tool call, list of tool calls, or None if failed
+            List of tool calls or None if failed
         """
         try:
             # Call DeepSeek with JSON output format
             response = await self._create_chat_completion(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": self.create_system_prompt(tools, allow_multiple)},
+                    {"role": "system", "content": self.create_system_prompt(tools)},
                     {"role": "user", "content": instruction}
                 ],
                 response_format={"type": "json_object"}
@@ -229,13 +187,9 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             try:
                 model_response = json.loads(content)
                 
-                if allow_multiple:
-                    # Process multiple tool calls
-                    if "tool_calls" not in model_response or not isinstance(model_response["tool_calls"], list):
-                        logger.error("Response does not contain tool_calls array")
-                        return None
-                    
-                    # Process each tool call
+                # Process multiple tool calls
+                if "tool_calls" in model_response and isinstance(model_response["tool_calls"], list):
+                    # Handle standard multiple tool calls format
                     tool_calls = []
                     for i, call_data in enumerate(model_response["tool_calls"]):
                         if "function" not in call_data:
@@ -252,9 +206,10 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                         tool_calls.append(tool_call)
                     
                     return tool_calls
-                else:
-                    # Process single tool call
-                    # Add the ID and type fields if the model didn't provide them
+                    
+                # Handle single tool call format (for backward compatibility)
+                elif "function" in model_response:
+                    # Convert single tool call to list format
                     call_id = f"call_{str(uuid.uuid4())[:8]}"
                     tool_call = {
                         "id": call_id,
@@ -262,7 +217,10 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                         "function": model_response.get("function", {})
                     }
                     
-                    return tool_call
+                    return [tool_call]
+                else:
+                    logger.error("Response does not contain tool_calls array or function object")
+                    return None
                     
             except json.JSONDecodeError as e:
                 logger.error(f"JSON parsing error: {e}\nContent: {content[:100]}...")

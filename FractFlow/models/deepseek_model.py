@@ -67,7 +67,6 @@ class DeepSeekModel(BaseModel):
         
         self.history_adapter = DeepSeekHistoryAdapter()
         self.tool_helper = DeepSeekToolCallingHelper()
-        self.debug_enabled = False  # Enable debugging
 
     async def execute(self, tools: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
@@ -82,24 +81,11 @@ class DeepSeekModel(BaseModel):
             Response with content and optional tool calls
         """
         try:
-            # Debug output for raw history
-            if self.debug_enabled:
-                raw_history = self.history.format_debug_output()
-                logger.debug(f"Raw conversation history before adaptation:\n{raw_history}")
-            
             # Format history for DeepSeek using the adapter
             # Pass tools=None here, as the main model only generates instructions, not calls
             formatted_messages = self.history_adapter.format_for_model(
                 self.history.get_messages(), tools=None  
             )
-            
-            # Debug output for formatted history
-            if self.debug_enabled:
-                adapter_debug = self.history_adapter.format_debug_output(
-                    formatted_messages, None, "DeepSeek INPUT"
-                )
-                logger.debug(f"Adapter conversion details:\n{adapter_debug}")
-
             # Get model response
             logger.debug(f"Calling DeepSeek model: {self.model}")
             response = await self._create_chat_completion(
@@ -137,7 +123,7 @@ class DeepSeekModel(BaseModel):
                     
                     # Pass the instruction to the robust tool calling helper
                     logger.debug(f"Invoking tool_helper for request {i+1}...")
-                    validated_tool_calls, stats = await self.tool_helper.call_tool(tool_instruction, tools, allow_multiple=True)
+                    validated_tool_calls, stats = await self.tool_helper.call_tool(tool_instruction, tools)
                     
                     if validated_tool_calls and len(validated_tool_calls) > 0:
                         # Add all valid tool calls to our list
@@ -196,9 +182,6 @@ class DeepSeekModel(BaseModel):
             message: The user message content
         """
         self.history.add_user_message(message)
-        if self.debug_enabled:
-            logger.debug(f"Added user message: {message[:50]}...")
-        
     def add_assistant_message(self, message: str, tool_calls: Optional[List[Dict[str, Any]]] = None) -> None:
         """
         Add an assistant message to the conversation history.
@@ -208,9 +191,6 @@ class DeepSeekModel(BaseModel):
             tool_calls: Optional list of tool calls made by the assistant
         """
         self.history.add_assistant_message(message, tool_calls)
-        if self.debug_enabled:
-            logger.debug(f"Added assistant message: {message[:50]}...")
-        
     def add_tool_result(self, tool_name: str, result: str, tool_call_id: Optional[str] = None) -> None:
         """
         Add a tool result to the conversation history.
@@ -221,5 +201,3 @@ class DeepSeekModel(BaseModel):
             tool_call_id: Optional ID of the tool call this is responding to
         """
         self.history.add_tool_result(tool_name, result, tool_call_id)
-        if self.debug_enabled:
-            logger.debug(f"Added tool result from {tool_name}: {result[:50]}...") 
