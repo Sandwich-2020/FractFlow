@@ -16,24 +16,19 @@ as described in the interface requirements.
 
 import asyncio
 import os
-from dotenv import load_dotenv
 
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
 from FractFlow.infra.config import ConfigManager
 
 async def main():
-    # 1. Load environment variables 
-    load_dotenv()
     
     # 3. Create a new agent
     agent = Agent()  # No need to specify provider here if it's in config
     config = agent.get_config()
-    config['agent']['provider'] = 'qwen'
+    config['agent']['provider'] = 'deepseek'
     # config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
-    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
-    config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
     config['qwen']['base_url'] = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 5  # Properly set as nested value
