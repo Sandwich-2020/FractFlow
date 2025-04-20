@@ -296,3 +296,16 @@ This approach allows you to create a specialized Agent tool that can be called b
 Supported models:
 - DeepSeek (reasoner and chat)
 - Qwen (qwen2.5-vl-72b-instruct, qwen-plus)
+
+
+----
+Updates
+
+## Version 0.2.0
+- Improved security of configuration system
+- Unified DeepSeek and Qwen model implementations
+- Enhanced tool calling capabilities
+  - Added support for parallel multi-tool execution
+  - Refactored toolCallingHelper as independent module
+  - Improved DeepSeek model reasoner with better tool calling
+- Updated the image_io tool
