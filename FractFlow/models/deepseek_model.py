@@ -12,7 +12,7 @@ from typing import Dict, List, Any, Optional
 from openai import OpenAI
 
 from .base_model import BaseModel
-from .toolCallingHelper import DeepSeekToolCallingHelper
+from .toolCallingHelper import ToolCallingHelperFactory
 from ..infra.config import ConfigManager
 from ..infra.error_handling import LLMError, handle_error, create_error_response
 from ..conversation.base_history import ConversationHistory
@@ -66,7 +66,8 @@ class DeepSeekModel(BaseModel):
         self.history = ConversationHistory(complete_system_prompt)
         
         self.history_adapter = DeepSeekHistoryAdapter()
-        self.tool_helper = DeepSeekToolCallingHelper()
+        # Create tool helper using the factory, defaulting to 'deepseek' provider
+        self.tool_helper = ToolCallingHelperFactory.create_helper('deepseek')
 
     async def execute(self, tools: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """

@@ -61,6 +61,10 @@ class ConfigManager:
                 'max_iterations': 10,
                 'custom_system_prompt': '',      # Field for customizable part of system prompt
                 'provider': 'deepseek',          # Default provider is deepseek
+            },
+            'tool_calling': {
+                'provider': None,                # If None, uses the agent.provider value
+                'max_retries': 5,                # Maximum number of retries for tool calls
             }
         }
     
@@ -118,6 +122,16 @@ class ConfigManager:
         self.set('qwen.base_url', env.get('QWEN_BASE_URL', self.get('qwen.base_url')))
         self.set('qwen.model', env.get('QWEN_MODEL_NAME', self.get('qwen.model')))
         self.set('qwen.tool_calling_model', env.get('QWEN_TOOL_CALLING_MODEL', self.get('qwen.tool_calling_model')))
+        
+        # Tool Calling settings
+        self.set('tool_calling.provider', env.get('TOOL_CALLING_PROVIDER'))
+        
+        max_retries = env.get('TOOL_CALLING_MAX_RETRIES')
+        if max_retries is not None:
+            try:
+                self.set('tool_calling.max_retries', int(max_retries))
+            except ValueError:
+                pass  # Use default if conversion fails
         
         # Agent settings
         max_iterations = env.get('MAX_ITERATIONS')

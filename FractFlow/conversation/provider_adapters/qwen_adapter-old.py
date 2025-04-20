@@ -1,31 +1,33 @@
 """
-Qwen history adapter.
+QWEN history adapter.
 
-Formats conversation history according to Qwen's API requirements.
+Formats conversation history according to QWEN's API requirements.
 """
 
 from typing import List, Dict, Any, Optional
-from .base_adapter import HistoryAdapter
 import json
+import uuid
+from .base_adapter import HistoryAdapter
 
 class QwenHistoryAdapter(HistoryAdapter):
     """
-    History adapter for Qwen models.
+    History adapter for QWEN models.
     
-    Formats conversation history according to Qwen's requirements.
-    This adapter follows the same pattern as DeepSeek to ensure consistency.
+    Formats conversation history according to QWEN's requirements.
+    QWEN models typically follow an OpenAI-compatible format, with
+    alternating user and assistant messages.
     """
     
     def format_for_model(self, messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
-        Format conversation history for Qwen models.
+        Format conversation history for QWEN models.
         
         Args:
             messages: The raw conversation history
             tools: Optional list of available tools
             
         Returns:
-            Formatted conversation history for Qwen
+            Formatted conversation history for QWEN
         """
         formatted_messages = []
         tools_desc = None
@@ -58,18 +60,53 @@ class QwenHistoryAdapter(HistoryAdapter):
                 })
                 
             elif role == "assistant":
-                # Assistant messages are directly supported
-                formatted_messages.append({
-                    "role": "assistant", 
-                    "content": message["content"]
-                })
+                # Assistant messages with tool calls
+                if "tool_calls" in message and message["tool_calls"]:
+                    # Convert internal tool call format to OpenAI compatible format
+                    openai_tool_calls = []
+                    for tc in message["tool_calls"]:
+                        if isinstance(tc, dict):
+                            # Generate a unique ID if not present
+                            call_id = tc.get("id", f"call_{str(uuid.uuid4())[:8]}")
+                            
+                            # Extract name and arguments
+                            name = tc.get("name", "")
+                            
+                            # If arguments is already a string, use it as is
+                            # Otherwise, convert to JSON string
+                            arguments = tc.get("arguments", {})
+                            if not isinstance(arguments, str):
+                                arguments = json.dumps(arguments)
+                                
+                            # Create OpenAI format tool call
+                            openai_tool_calls.append({
+                                "id": call_id,
+                                "type": "function",
+                                "function": {
+                                    "name": name,
+                                    "arguments": arguments
+                                }
+                            })
+                    
+                    formatted_messages.append({
+                        "role": "assistant",
+                        "content": message["content"],
+                        "tool_calls": openai_tool_calls
+                    })
+                else:
+                    # Regular assistant messages
+                    formatted_messages.append({
+                        "role": "assistant", 
+                        "content": message["content"]
+                    })
                 
             elif role == "tool":
-                # For Qwen models, format tool results as user messages (same as DeepSeek)
-                tool_name = message.get("tool_name", "unknown tool")
+                # Tool results need to be formatted as tool messages for QWEN
                 formatted_messages.append({
-                    "role": "user",
-                    "content": f"Tool result from {tool_name}:\n{message['content']}"
+                    "role": "tool",
+                    "tool_call_id": message.get("tool_call_id", ""),
+                    "name": message.get("tool_name", "unknown_tool"),
+                    "content": message["content"]
                 })
         
         # Check if we have successive user messages and fix them
@@ -88,35 +125,22 @@ class QwenHistoryAdapter(HistoryAdapter):
             Formatted string describing available tools
         """
         descriptions = []
-        
-        # Add a concise guide for tool calling at the beginning
-        format_explanation = """Note that ONLY the following tools are available:
-"""
-        descriptions.append(format_explanation)
-        
-        # Generate description for each tool
         for tool in tools:
             name = tool.get("function", {}).get("name")
             description = tool.get("function", {}).get("description")
             params = tool.get("function", {}).get("parameters", {}).get("properties", {})
-            required_params = tool.get("function", {}).get("parameters", {}).get("required", [])
             
             if not name or not description:
                 continue
                 
-            # Format parameter descriptions
             param_desc = []
             for param_name, param_info in params.items():
                 param_type = param_info.get("type", "any")
                 param_description = param_info.get("description", "")
-                required = "required" if param_name in required_params else "optional"
-                param_desc.append(f"  - {param_name} ({param_type}, {required}): {param_description}")
+                param_desc.append(f"  - {param_name} ({param_type}): {param_description}")
                 
             param_text = "\n".join(param_desc) if param_desc else "  No parameters"
-            
-                
-            # Combine all into the tool description
-            descriptions.append(f"**Available Tool**: {name}\nDescription: {description}\nParameters:\n{param_text}")
+            descriptions.append(f"- {name}: {description}\n  Parameters:\n{param_text}")
             
         return "\n\n".join(descriptions)
     
@@ -137,7 +161,7 @@ class QwenHistoryAdapter(HistoryAdapter):
         """
         Ensure that user and assistant messages alternate properly.
         
-        This is needed for Qwen models which require strict alternation.
+        This is needed for QWEN models which require strict alternation.
         The function modifies the messages list in-place.
         
         Args:
@@ -193,38 +217,4 @@ class QwenHistoryAdapter(HistoryAdapter):
                     continue
             
             # Move to next message
-            i += 1
-            
-    def format_debug_output(self, formatted_messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None, title: str = "QWEN ADAPTER") -> str:
-        """
-        Generate debug output for the formatted messages.
-        
-        Args:
-            formatted_messages: The formatted messages
-            tools: Optional list of tools
-            title: Title for the debug output
-            
-        Returns:
-            String containing debug information
-        """
-        lines = [f"===== {title} DEBUG OUTPUT ====="]
-        
-        # Add info about tools
-        if tools:
-            lines.append(f"Tools: {len(tools)} available")
-        else:
-            lines.append("Tools: None")
-            
-        # Add formatted messages
-        lines.append("\nFormatted Messages:")
-        for i, msg in enumerate(formatted_messages):
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")[:50] + ("..." if len(msg.get("content", "")) > 50 else "")
-            
-            has_tool_calls = "tool_calls" in msg and msg["tool_calls"]
-            tool_calls_info = f", {len(msg['tool_calls'])} tool calls" if has_tool_calls else ""
-            
-            lines.append(f"{i+1}. Role: {role}{tool_calls_info}")
-            lines.append(f"   Content: {content}")
-            
-        return "\n".join(lines) 
+            i += 1 
