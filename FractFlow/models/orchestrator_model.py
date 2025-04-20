@@ -18,7 +18,6 @@ from ..infra.error_handling import LLMError, handle_error, create_error_response
 from ..conversation.base_history import ConversationHistory
 
 logger = logging.getLogger(__name__)
-config = ConfigManager()
 
 # Instructions for the main reasoner model on how to request a tool call
 TOOL_REQUEST_INSTRUCTIONS = """When you determine that a tool is needed to answer the user's request or perform an action, you MUST issue a tool request instruction. 
@@ -46,7 +45,8 @@ class OrchestratorModel(BaseModel):
     high-quality tool calling instructions using various LLM providers.
     """
     
-    def __init__(self, base_url: str, api_key: str, model_name: str, provider_name: str, history_adapter: Any):
+    def __init__(self, base_url: str, api_key: str, model_name: str, provider_name: str, 
+                 history_adapter: Any, config: Optional[ConfigManager] = None):
         """
         Initialize the orchestrator model with provider-specific settings.
         
@@ -56,7 +56,12 @@ class OrchestratorModel(BaseModel):
             model_name: The model name/identifier to use
             provider_name: Name of the provider for tool helper creation
             history_adapter: Provider-specific history adapter instance
+            config: Configuration manager instance to use
         """
+        if config is None:
+            config = ConfigManager()
+            
+        self.config = config
         self.client = OpenAI(
             base_url=base_url,
             api_key=api_key
@@ -74,7 +79,7 @@ class OrchestratorModel(BaseModel):
         
         self.history_adapter = history_adapter
         # Use the unified ToolCallHelper with provider name
-        self.tool_helper = ToolCallHelper()
+        self.tool_helper = ToolCallHelper(config=config)
 
     async def execute(self, tools: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """

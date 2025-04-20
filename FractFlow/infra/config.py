@@ -18,24 +18,22 @@ class ConfigManager:
     allowing configuration to be set from various sources.
     """
     
-    _instance = None
-    
-    def __new__(cls):
-        """Implement singleton pattern."""
-        if cls._instance is None:
-            cls._instance = super(ConfigManager, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-    
-    def __init__(self):
-        """Initialize the config manager if not already initialized."""
-        if getattr(self, '_initialized', False):
-            return
-            
+    def __init__(self, initial_config: Optional[Dict[str, Any]] = None):
+        """
+        Initialize the config manager with optional initial configuration.
+        
+        Args:
+            initial_config: Optional initial configuration to use
+        """
         # Initialize with default configuration
         self._config = self._get_default_config()
+        
+        # Apply initial config if provided
+        if initial_config:
+            self.set_config(initial_config)
+            
+        # Load environment variables after initial config
         self._load_from_env()
-        self._initialized = True
     
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default configuration values."""
@@ -50,13 +48,11 @@ class ConfigManager:
                 'api_key': None,
                 'base_url': 'https://api.deepseek.com',
                 'model': 'deepseek-chat',
-                'tool_calling_model': 'deepseek-chat',
             },
             'qwen': {
                 'api_key': None,
                 'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 'model': 'qwen-plus',
-                'tool_calling_model': 'qwen-plus',
             },
             'agent': {
                 'max_iterations': 10,
@@ -64,8 +60,9 @@ class ConfigManager:
                 'provider': 'deepseek',          # Default provider is deepseek
             },
             'tool_calling': {
-                'provider': None,                # If None, uses the agent.provider value
                 'max_retries': 5,                # Maximum number of retries for tool calls
+                'base_url': 'https://api.deepseek.com',
+                'model': 'deepseek-chat',
             }
         }
     
@@ -78,6 +75,17 @@ class ConfigManager:
         """
         # Return a deep copy to prevent external modification of the internal state
         return copy.deepcopy(self._config)
+    
+    def create_copy(self) -> 'ConfigManager':
+        """
+        Create a new ConfigManager instance with the same configuration.
+        
+        Returns:
+            A new ConfigManager instance with a copy of the current configuration
+        """
+        new_config = ConfigManager()
+        new_config.set_config(self.get_config())
+        return new_config
     
     def set_config(self, config: Dict[str, Any]) -> None:
         """

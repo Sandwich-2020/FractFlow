@@ -10,8 +10,6 @@ from .orchestrator_model import OrchestratorModel
 from ..infra.config import ConfigManager
 from ..conversation.provider_adapters.qwen_adapter import QwenHistoryAdapter
 
-config = ConfigManager()
-
 class QwenModel(OrchestratorModel):
     """
     Implementation of OrchestratorModel for Qwen models.
@@ -20,10 +18,16 @@ class QwenModel(OrchestratorModel):
     high-quality tool calling instructions using Qwen's models.
     """
     
-    def __init__(self):
+    def __init__(self, config: Optional[ConfigManager] = None):
         """
         Initialize the Qwen model with Qwen-specific configuration.
+        
+        Args:
+            config: Configuration manager instance to use
         """
+        if config is None:
+            config = ConfigManager()
+            
         history_adapter = QwenHistoryAdapter()
         
         super().__init__(
@@ -31,5 +35,6 @@ class QwenModel(OrchestratorModel):
             api_key=config.get('qwen.api_key'),
             model_name=config.get('qwen.model', 'qwen-max'),
             provider_name='qwen',
-            history_adapter=history_adapter
+            history_adapter=history_adapter,
+            config=config
         )

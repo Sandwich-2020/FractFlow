@@ -18,9 +18,14 @@ class ToolCallHelper:
     Can be configured to work with different model providers through configuration.
     """
     
-    def __init__(self):
-        """Initialize the tool calling helper with configuration."""
-        self.config = ConfigManager()
+    def __init__(self, config: Optional[ConfigManager] = None):
+        """
+        Initialize the tool calling helper with configuration.
+        
+        Args:
+            config: Configuration manager instance to use
+        """
+        self.config = config or ConfigManager()
         self.client = None
         
         # Load configuration with defaults
@@ -183,7 +188,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                 return None
                 
         except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error: {e}\nContent: {content[:100]}...")
+            logger.error(f"JSON parsing error: {e}\nContent: {content}...")
             return None
     
     async def call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -331,7 +336,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             # Attempt to parse the arguments as JSON
             json.loads(arguments)
         except json.JSONDecodeError:
-            logger.error(f"Arguments is not valid JSON: {arguments[:100]}...")
+            logger.error(f"Arguments is not valid JSON: {arguments}...")
             return False
             
         # Everything looks good
