@@ -1,5 +1,4 @@
 import json
-import logging
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -7,8 +6,7 @@ from openai import OpenAI
 
 from ..infra.config import ConfigManager
 from ..infra.error_handling import handle_error
-
-logger = logging.getLogger(__name__)
+from ..infra.logging_utils import get_logger
 
 class ToolCallHelper:
     """
@@ -26,6 +24,13 @@ class ToolCallHelper:
             config: Configuration manager instance to use
         """
         self.config = config or ConfigManager()
+        
+        # Push component name to call path
+        self.config.push_to_call_path("tool_call_helper")
+        
+        # Initialize logger
+        self.logger = get_logger(self.config.get_call_path())
+        
         self.client = None
         
         # Load configuration with defaults
@@ -33,6 +38,11 @@ class ToolCallHelper:
         self.base_url = self.config.get('tool_calling.base_url', 'https://api.deepseek.com')
         self.api_key = self.config.get('tool_calling.api_key', self.config.get('deepseek.api_key'))
         self.model = self.config.get('tool_calling.model', 'deepseek-chat')
+        
+        self.logger.debug("Tool call helper initialized", {
+            "model": self.model,
+            "max_retries": self.max_retries
+        })
         
     async def initialize_client(self) -> OpenAI:
         """
@@ -42,6 +52,7 @@ class ToolCallHelper:
             Configured OpenAI client
         """
         if self.client is None:
+            self.logger.debug("Initializing OpenAI client", {"base_url": self.base_url})
             self.client = OpenAI(
                 base_url=self.base_url,
                 api_key=self.api_key
@@ -71,6 +82,8 @@ class ToolCallHelper:
             tool_details.append(f"- {tool_name}: {description}\n  Parameters: {param_list}")
         
         tools_text = "\n".join(tool_details)
+        
+        self.logger.debug("Creating system prompt", {"tools_count": len(tools)})
         
         return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls based ONLY on the tools that are available.
 
@@ -126,11 +139,13 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                 kwargs['model'] = self.model
                 
             # Call the API
+            self.logger.debug("Calling chat completion API")
             result = self.client.chat.completions.create(**kwargs)
+            self.logger.debug("API call successful")
             return await result if hasattr(result, "__await__") else result
         except Exception as e:
             error = handle_error(e, {"kwargs": kwargs})
-            logger.error(f"API call error: {error}")
+            self.logger.error(f"API call error", {"error": str(error)})
             return None
     
     async def _parse_model_response(self, response: Any) -> Optional[List[Dict[str, Any]]]:
@@ -144,12 +159,14 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             List of tool calls or None if failed
         """
         if not response or not response.choices:
+            self.logger.warning("Empty response from model")
             return None
             
         content = response.choices[0].message.content.strip()
         
         # Parse the JSON response
         try:
+            self.logger.debug("Parsing model response")
             model_response = json.loads(content)
             
             # Process multiple tool calls
@@ -158,7 +175,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                 tool_calls = []
                 for i, call_data in enumerate(model_response["tool_calls"]):
                     if "function" not in call_data:
-                        logger.error(f"Tool call {i+1} has no function object")
+                        self.logger.error(f"Tool call missing function object", {"index": i})
                         continue
                         
                     # Add ID and type fields to each call
@@ -170,6 +187,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                     }
                     tool_calls.append(tool_call)
                 
+                self.logger.debug(f"Parsed tool calls", {"count": len(tool_calls)})
                 return tool_calls
                 
             # Handle single tool call format (for backward compatibility)
@@ -182,13 +200,14 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                     "function": model_response.get("function", {})
                 }
                 
+                self.logger.debug("Parsed single tool call")
                 return [tool_call]
             else:
-                logger.error("Response does not contain tool_calls array or function object")
+                self.logger.error("Response does not contain tool_calls array or function object")
                 return None
                 
         except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error: {e}\nContent: {content}...")
+            self.logger.error(f"JSON parsing error", {"error": str(e)})
             return None
     
     async def call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -214,18 +233,20 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             "total_calls": 0
         }
         
+        self.logger.debug("Starting tool call generation", {"tools_available": len(tools)})
+        
         # Try multiple times to get valid tool calls
         for attempt in range(self.max_retries):
             try:
                 stats["attempts"] = attempt + 1
-                logger.debug(f"Tool call attempt {attempt+1}/{self.max_retries}")
+                self.logger.debug(f"Tool call attempt", {"attempt": attempt+1, "max": self.max_retries})
                 
                 # Call the internal method to get tool calls
                 tool_calls = await self._internal_call_tool(instruction, tools)
                 
                 # Skip if no response was received
                 if not tool_calls:
-                    logger.warning(f"No response from model on attempt {attempt+1}")
+                    self.logger.warning(f"No response from model on attempt", {"attempt": attempt+1})
                     continue
                 
                 stats["total_calls"] = len(tool_calls)
@@ -237,25 +258,32 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                         valid_tool_calls.append(call)
                         stats["valid_calls"] += 1
                     else:
-                        logger.warning(f"Invalid tool call {i+1} on attempt {attempt+1}: {call}")
+                        self.logger.warning(f"Invalid tool call", {
+                            "index": i,
+                            "attempt": attempt+1,
+                            "tool": call.get("function", {}).get("name", "unknown")
+                        })
                         stats["invalid_calls"] += 1
                 
                 # If we have at least one valid call, consider it a success
                 if valid_tool_calls:
-                    logger.debug(f"Generated {len(valid_tool_calls)} valid tool calls on attempt {attempt+1}")
+                    self.logger.debug(f"Generated valid tool calls", {
+                        "count": len(valid_tool_calls), 
+                        "attempt": attempt+1
+                    })
                     stats["success"] = True
                     return valid_tool_calls, stats
                 else:
-                    logger.warning(f"No valid tool calls on attempt {attempt+1}")
+                    self.logger.warning(f"No valid tool calls on attempt", {"attempt": attempt+1})
                     continue
                 
             except Exception as e:
                 error = handle_error(e, {"instruction": instruction, "attempt": attempt+1})
-                logger.error(f"Error on tool call attempt {attempt+1}: {error}")
+                self.logger.error(f"Error on tool call attempt", {"attempt": attempt+1, "error": str(error)})
                 # Continue to the next attempt rather than failing immediately
         
         # If we exhausted all retries without success
-        logger.error(f"Failed to generate valid tool calls after {self.max_retries} attempts")
+        self.logger.error(f"Failed to generate valid tool calls after all attempts", {"max": self.max_retries})
         stats["success"] = False
         return [], stats
     
@@ -272,6 +300,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
         """
         try:
             # Call the model with appropriate formatting
+            self.logger.debug("Calling model with instruction")
             response = await self._create_chat_completion(
                 messages=[
                     {"role": "system", "content": self.create_system_prompt(tools)},
@@ -281,6 +310,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             )
             
             if not response:
+                self.logger.warning("No response from model")
                 return None
             
             # Parse the response
@@ -288,7 +318,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                 
         except Exception as e:
             error = handle_error(e, {"instruction": instruction})
-            logger.error(f"Internal tool calling error: {error}")
+            self.logger.error(f"Internal tool calling error", {"error": str(error)})
             return None
     
     def _validate_tool_call(self, tool_call: Dict[str, Any], available_tools: List[str]) -> bool:
@@ -304,39 +334,39 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
         """
         # Check that the required fields are present
         if not isinstance(tool_call, dict):
-            logger.error("Tool call is not a dictionary")
+            self.logger.error("Tool call is not a dictionary")
             return False
             
         if "type" not in tool_call or tool_call["type"] != "function":
-            logger.error("Tool call is not a function call")
+            self.logger.error("Tool call is not a function call")
             return False
             
         if "function" not in tool_call or not isinstance(tool_call["function"], dict):
-            logger.error("Tool call has no function object")
+            self.logger.error("Tool call has no function object")
             return False
             
         function = tool_call["function"]
         if "name" not in function or "arguments" not in function:
-            logger.error("Function object missing name or arguments")
+            self.logger.error("Function object missing name or arguments")
             return False
             
         # Verify that the tool exists
         tool_name = function["name"]
         if tool_name not in available_tools:
-            logger.error(f"Tool '{tool_name}' not in available tools: {available_tools}")
+            self.logger.error(f"Tool not in available tools", {"tool": tool_name})
             return False
             
         # Verify that the arguments is a valid JSON string
         arguments = function["arguments"]
         if not isinstance(arguments, str):
-            logger.error("Arguments must be a string")
+            self.logger.error("Arguments must be a string")
             return False
             
         try:
             # Attempt to parse the arguments as JSON
             json.loads(arguments)
         except json.JSONDecodeError:
-            logger.error(f"Arguments is not valid JSON: {arguments}...")
+            self.logger.error(f"Arguments is not valid JSON", {"args": arguments[:100]+"..." if len(arguments) > 100 else arguments})
             return False
             
         # Everything looks good

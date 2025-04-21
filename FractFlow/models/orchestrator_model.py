@@ -5,7 +5,6 @@ Provides a base implementation for models that orchestrate tools and reasoning.
 """
 
 import json
-import logging
 import re
 import uuid
 from typing import Dict, List, Any, Optional
@@ -16,8 +15,7 @@ from .toolcall_model import ToolCallHelper
 from ..infra.config import ConfigManager
 from ..infra.error_handling import LLMError, handle_error, create_error_response
 from ..conversation.base_history import ConversationHistory
-
-logger = logging.getLogger(__name__)
+from ..infra.logging_utils import get_logger
 
 # Instructions for the main reasoner model on how to request a tool call
 TOOL_REQUEST_INSTRUCTIONS = """When you determine that a tool is needed to answer the user's request or perform an action, you MUST issue a tool request instruction. 
@@ -62,6 +60,10 @@ class OrchestratorModel(BaseModel):
             config = ConfigManager()
             
         self.config = config
+        
+        # Initialize logger
+        self.logger = get_logger(self.config.get_call_path())
+        
         self.client = OpenAI(
             base_url=base_url,
             api_key=api_key
@@ -101,24 +103,24 @@ class OrchestratorModel(BaseModel):
             )
             
             # Get model response
-            logger.debug(f"Calling {self.__class__.__name__} model: {self.model}")
+            self.logger.debug(f"Calling {self.__class__.__name__} model: {self.model}")
             response = await self._create_chat_completion(
                 model=self.model,
                 messages=formatted_messages
             )
             
             if not response or not response.choices:
-                logger.error(f"Failed to get response from {self.__class__.__name__} model")
+                self.logger.error(f"Failed to get response from {self.__class__.__name__} model")
                 return create_error_response(LLMError("Failed to get response from model"))
                 
             content = response.choices[0].message.content
-            logger.debug(f"Received response from reasoner: {content[:200]}...")
+            self.logger.debug(f"Received response from reasoner: {content[:200]}...")
             
             # Extract reasoning content if available
             reasoning_content = None
             if hasattr(response.choices[0].message, 'reasoning_content'):
                 reasoning_content = response.choices[0].message.reasoning_content
-                logger.debug(f"Reasoning content from reasoner: {reasoning_content}")
+                self.logger.debug(f"Reasoning content from reasoner: {reasoning_content}")
 
             # --- Multiple Tool Calling Logic ---
             tool_calls = []
@@ -127,31 +129,31 @@ class OrchestratorModel(BaseModel):
             matches = re.findall(r"<tool_request>(.*?)</tool_request>", content, re.DOTALL)
             
             if matches and tools:
-                logger.debug(f"Found {len(matches)} tool request instructions")
+                self.logger.debug(f"Found {len(matches)} tool request instructions")
                 
                 # Process each tool request
                 for i, tool_instruction in enumerate(matches):
                     # Extract and clean the instruction text
                     tool_instruction = tool_instruction.strip()
-                    logger.debug(f"Processing tool request {i+1}: {tool_instruction[:100]}...")
+                    self.logger.debug(f"Processing tool request {i+1}: {tool_instruction[:100]}...")
                     
                     # Pass the instruction to the robust tool calling helper
-                    logger.debug(f"Invoking tool_helper for request {i+1}...")
+                    self.logger.debug(f"Invoking tool_helper for request {i+1}...")
                     validated_tool_calls, stats = await self.tool_helper.call_tool(tool_instruction, tools)
                     
                     if validated_tool_calls and len(validated_tool_calls) > 0:
                         # Add all valid tool calls to our list
                         tool_calls.extend(validated_tool_calls)
-                        logger.info(f"Helper generated {stats['valid_calls']} tool calls for request {i+1}")
+                        self.logger.info(f"Helper generated {stats['valid_calls']} tool calls for request {i+1}")
                     else:
-                        logger.error(f"Tool helper failed to generate valid tool calls for request {i+1}")
+                        self.logger.error(f"Tool helper failed to generate valid tool calls for request {i+1}")
                         
                 if not tool_calls:
-                    logger.warning("None of the tool requests produced valid tool calls")
+                    self.logger.warning("None of the tool requests produced valid tool calls")
             elif matches and not tools:
-                logger.warning(f"Found {len(matches)} tool requests, but no tools were provided to execute")
+                self.logger.warning(f"Found {len(matches)} tool requests, but no tools were provided to execute")
             else:
-                logger.debug("No <tool_request> tags found in the response")
+                self.logger.debug("No <tool_request> tags found in the response")
             # --- End Multiple Tool Calling Logic ---
 
             # Return the response, including all validated tool calls
@@ -167,7 +169,7 @@ class OrchestratorModel(BaseModel):
                 
         except Exception as e:
             error = handle_error(e)
-            logger.error(f"Error in model execution: {error}")
+            self.logger.error(f"Error in model execution: {error}")
             return create_error_response(error)
 
     async def _create_chat_completion(self, **kwargs) -> Any:
@@ -185,7 +187,7 @@ class OrchestratorModel(BaseModel):
             return await result if hasattr(result, "__await__") else result
         except Exception as e:
             error = handle_error(e, {"kwargs": kwargs})
-            logger.error(f"API call error: {error}")
+            self.logger.error(f"API call error: {error}")
             return None
 
     def add_user_message(self, message: str) -> None:

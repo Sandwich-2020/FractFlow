@@ -12,12 +12,10 @@ Tool executor.
 Handles the execution of tools based on model requests.
 """
 
-import logging
 from typing import Dict, Any, Optional
 from ..infra.config import ConfigManager
 from ..infra.error_handling import ToolExecutionError, handle_error
-
-logger = logging.getLogger(__name__)
+from ..infra.logging_utils import get_logger
 
 class ToolExecutor:
     """
@@ -36,6 +34,13 @@ class ToolExecutor:
         """
         self.config = config or ConfigManager()
         
+        # Push component name to call path
+        self.config.push_to_call_path("tool_executor")
+        
+        # Initialize logger
+        self.logger = get_logger(self.config.get_call_path())
+        self.logger.debug("Tool executor initialized")
+        
     async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         """
         Execute a tool with the given arguments.
@@ -51,6 +56,8 @@ class ToolExecutor:
             ToolExecutionError: If the tool execution fails
         """
         try:
+            self.logger.debug(f"Executing tool", {"tool": tool_name, "args": arguments})
+            
             # Get the client pool from the MCP module
             # This is imported here to avoid circular imports
             from ..mcpcore import get_client_pool
@@ -58,9 +65,11 @@ class ToolExecutor:
             # Call the tool using the MCP client pool
             client_pool = get_client_pool()
             result = await client_pool.call(tool_name, arguments)
+            
+            self.logger.debug(f"Tool execution successful", {"tool": tool_name, "result_length": len(result) if result else 0})
             return result
             
         except Exception as e:
             error = handle_error(e, {"tool_name": tool_name, "arguments": arguments})
-            logger.error(f"Error executing tool {tool_name}: {error}")
+            self.logger.error(f"Error executing tool {tool_name}: {error}")
             raise ToolExecutionError(f"Failed to execute tool {tool_name}: {str(error)}", e) 

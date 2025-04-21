@@ -15,16 +15,13 @@ tool management, and initialization of the agent system.
 
 import os
 import json
-import logging
-import asyncio
 from typing import Dict, List, Any, Optional
 
 from FractFlow.models.factory import create_model
 from FractFlow.models.base_model import BaseModel
 from FractFlow.infra.config import ConfigManager
 from FractFlow.infra.error_handling import AgentError, handle_error, ConfigurationError
-
-logger = logging.getLogger(__name__)
+from FractFlow.infra.logging_utils import get_logger
 
 class Orchestrator:
     """
@@ -49,7 +46,16 @@ class Orchestrator:
             config: Configuration manager instance to use
         """
         # Create or use the provided config
-        self.config = config or ConfigManager()
+        if config is None:
+            self.config = ConfigManager()
+        else:
+            self.config = config
+        
+        # Push component name to call path
+        self.config.push_to_call_path("orchestrator")
+        
+        # Initialize logger
+        self.logger = get_logger(self.config.get_call_path())
         
         # Get provider from config or use provided override
         self.provider = provider or self.config.get('agent.provider', 'openai')
@@ -64,6 +70,8 @@ class Orchestrator:
         # Register tools if provided
         self.tool_configs = tool_configs or {}
         
+        self.logger.debug("Orchestrator initialized", {"provider": self.provider, "tools_count": len(self.tool_configs)})
+        
     def register_tool_provider(self, name: str, provider_info: Any) -> None:
         """
         Register a tool provider with the agent.
@@ -75,9 +83,11 @@ class Orchestrator:
         if not self.launcher:
             # Store the config until we launch
             self.tool_configs[name] = provider_info
+            self.logger.debug(f"Queued tool provider registration", {"name": name})
             return
             
         self.launcher.register_server(name, provider_info)
+        self.logger.debug(f"Registered tool provider", {"name": name})
         
     def register_tools_from_config(self, tools_config: Dict[str, str]) -> None:
         """
@@ -91,9 +101,9 @@ class Orchestrator:
         for tool_name, script_path in tools_config.items():
             if os.path.exists(script_path):
                 self.register_tool_provider(tool_name, script_path)
-                logger.debug(f"Registered tool provider: {tool_name} from {script_path}")
+                self.logger.debug(f"Registered tool provider", {"name": tool_name, "path": script_path})
             else:
-                logger.warning(f"Tool script not found: {script_path} for {tool_name}")
+                self.logger.warning(f"Tool script not found", {"name": tool_name, "path": script_path})
                 
     def register_tools_from_file(self, config_file_path: str) -> None:
         """
@@ -112,7 +122,7 @@ class Orchestrator:
         """
         try:
             if not os.path.exists(config_file_path):
-                logger.warning(f"Tools configuration file not found: {config_file_path}")
+                self.logger.warning(f"Tools configuration file not found", {"path": config_file_path})
                 return
                 
             with open(config_file_path, 'r') as f:
@@ -120,17 +130,20 @@ class Orchestrator:
                 
             if "tools" in config_data and isinstance(config_data["tools"], dict):
                 self.register_tools_from_config(config_data["tools"])
+                self.logger.debug(f"Registered tools from file", {"path": config_file_path, "count": len(config_data["tools"])})
             else:
-                logger.warning(f"Invalid tools configuration format in {config_file_path}")
+                self.logger.warning(f"Invalid tools configuration format", {"path": config_file_path})
         except Exception as e:
             error = handle_error(e, {"config_file": config_file_path})
-            logger.error(f"Error loading tools configuration: {error}")
+            self.logger.error(f"Error loading tools configuration", {"error": str(error), "path": config_file_path})
         
     async def start(self) -> None:
         """Initialize and launch the agent system."""
         # Import here to avoid circular imports
         from FractFlow.mcpcore.launcher import MCPLauncher
         from FractFlow.mcpcore.tool_loader import MCPToolLoader
+        
+        self.logger.debug("Starting orchestrator")
         
         # Initialize MCP components
         self.launcher = MCPLauncher()
@@ -141,12 +154,16 @@ class Orchestrator:
             self.register_tools_from_config(self.tool_configs)
             
         # Launch all registered tool providers
+        self.logger.debug("Launching tool providers")
         await self.launcher.launch_all()
+        self.logger.info("Orchestrator started")
         
     async def shutdown(self) -> None:
         """Shut down the agent system."""
         if self.launcher:
+            self.logger.debug("Shutting down orchestrator")
             await self.launcher.shutdown()
+            self.logger.info("Orchestrator shut down")
         
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """
@@ -165,15 +182,15 @@ class Orchestrator:
                 try:
                     client_tools = await self.tool_loader.load_tools(session)
                     all_tools.extend(client_tools)
-                    logger.debug(f"Loaded {len(client_tools)} tools from client {client_name}")
+                    self.logger.debug(f"Loaded tools from client", {"client": client_name, "count": len(client_tools)})
                 except Exception as e:
-                    logger.error(f"Error loading tools from client {client_name}: {e}")
+                    self.logger.error(f"Error loading tools from client", {"client": client_name, "error": str(e)})
             
-            logger.debug(f"Loaded a total of {len(all_tools)} tools")
+            self.logger.debug(f"Total tools loaded", {"count": len(all_tools)})
             return all_tools
         except Exception as e:
             error = handle_error(e)
-            logger.error(f"Error getting available tools: {error}")
+            self.logger.error(f"Error getting available tools", {"error": str(error)})
             return []
             
     def get_model(self) -> BaseModel:

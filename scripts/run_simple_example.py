@@ -31,9 +31,9 @@ from FractFlow.infra.logging_utils import setup_logging, get_logger
 
 # 设置日志
 setup_logging(
-    level=logging.WARNING,  # 根logger设置为INFO
+    level=logging.DEBUG,  # 根logger设置为INFO
     namespace_levels={
-        "FractFlow": logging.DEBUG,  # FractFlow项目输出DEBUG日志
+        # "simple agent": logging.DEBUG,  # FractFlow项目输出DEBUG日志
         "httpx": logging.WARNING,    # 降低httpx的日志级别
     }
 )
@@ -42,7 +42,7 @@ setup_logging(
 async def main():
     
     # 3. Create a new agent
-    agent = Agent()  # No need to specify provider here if it's in config
+    agent = Agent('simple agent')  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     # config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'

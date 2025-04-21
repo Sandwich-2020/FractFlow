@@ -58,6 +58,7 @@ class ConfigManager:
                 'max_iterations': 10,
                 'custom_system_prompt': '',      # Field for customizable part of system prompt
                 'provider': 'deepseek',          # Default provider is deepseek
+                'call_path': '',                 # Call path for logging hierarchy
             },
             'tool_calling': {
                 'max_retries': 5,                # Maximum number of retries for tool calls
@@ -211,4 +212,39 @@ class ConfigManager:
                 self._deep_merge(target[key], value)
             else:
                 if value is not None:  # Only set non-None values
-                    target[key] = value 
+                    target[key] = value
+
+    def push_to_call_path(self, module_name: str) -> None:
+        """
+        Push a module name to the call path.
+        
+        Args:
+            module_name: The module name to add to the call path
+        """
+        current_path = self.get('agent.call_path', '')
+        if current_path:
+            new_path = f"{current_path}->{module_name}"
+        else:
+            new_path = module_name
+        self.set('agent.call_path', new_path)
+    
+    # def pop_from_call_path(self) -> None:
+    #     """
+    #     Pop the last module from the call path.
+    #     """
+    #     current_path = self.get('agent.call_path', '')
+    #     if '.' in current_path:
+    #         new_path = current_path.rsplit('>', 1)[0]
+    #         self.set('agent.call_path', new_path)
+    #     else:
+    #         # Clear the path if there's only one module left
+    #         self.set('agent.call_path', '')
+    
+    def get_call_path(self) -> str:
+        """
+        Get the current call path.
+        
+        Returns:
+            The current call path as a string
+        """
+        return self.get('agent.call_path', '') 

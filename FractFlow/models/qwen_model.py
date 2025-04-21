@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional
 
 from .orchestrator_model import OrchestratorModel
 from ..infra.config import ConfigManager
+from ..infra.logging_utils import get_logger
 from ..conversation.provider_adapters.qwen_adapter import QwenHistoryAdapter
 
 class QwenModel(OrchestratorModel):
@@ -28,7 +29,15 @@ class QwenModel(OrchestratorModel):
         if config is None:
             config = ConfigManager()
             
+        # Push model type to call path
+        config.push_to_call_path("qwen")
+        
+        # Initialize logger
+        self.logger = get_logger(config.get_call_path())
+            
         history_adapter = QwenHistoryAdapter()
+        
+        self.logger.debug("Creating Qwen model")
         
         super().__init__(
             base_url=config.get('qwen.base_url', 'https://dashscope.aliyuncs.com/compatible-mode/v1'),
@@ -38,3 +47,8 @@ class QwenModel(OrchestratorModel):
             history_adapter=history_adapter,
             config=config
         )
+        
+        self.logger.debug("Qwen model created", {
+            "model": config.get('qwen.model', 'qwen-max'),
+            "base_url": config.get('qwen.base_url', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+        })

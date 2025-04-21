@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional
 
 from .orchestrator_model import OrchestratorModel
 from ..infra.config import ConfigManager
+from ..infra.logging_utils import get_logger
 from ..conversation.provider_adapters.deepseek_adapter import DeepSeekHistoryAdapter
 
 class DeepSeekModel(OrchestratorModel):
@@ -28,7 +29,15 @@ class DeepSeekModel(OrchestratorModel):
         if config is None:
             config = ConfigManager()
             
+        # Push model type to call path
+        config.push_to_call_path("deepseek")
+        
+        # Initialize logger
+        self.logger = get_logger(config.get_call_path())
+            
         history_adapter = DeepSeekHistoryAdapter()
+        
+        self.logger.debug("Creating DeepSeek model")
         
         super().__init__(
             base_url=config.get('deepseek.base_url', 'https://api.deepseek.com'),
@@ -38,3 +47,8 @@ class DeepSeekModel(OrchestratorModel):
             history_adapter=history_adapter,
             config=config
         )
+        
+        self.logger.debug("DeepSeek model created", {
+            "model": config.get('deepseek.model', 'deepseek-reasoner'),
+            "base_url": config.get('deepseek.base_url', 'https://api.deepseek.com')
+        })
