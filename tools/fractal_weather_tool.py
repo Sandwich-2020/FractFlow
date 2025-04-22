@@ -13,7 +13,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.insert(0, project_root)  # <-- 添加这3行
 from dotenv import load_dotenv
+from FractFlow.infra.logging_utils import setup_logging
 
+setup_logging(20)
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
 import mcp
@@ -33,11 +35,11 @@ async def weather_agent(user_input: str) -> str:
     load_dotenv()
     print('working on weather agent')
     # 3. Create a new agent
-    agent = Agent()  # No need to specify provider here if it's in config
+    agent = Agent('Inner Weather Agent')  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
-    config['deepseek']['model'] = 'deepseek-chat'
+    config['deepseek']['model'] = 'deepseek-reasoner'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value
     # 4. Set configuration loaded from environment

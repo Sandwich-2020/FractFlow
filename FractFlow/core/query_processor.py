@@ -79,7 +79,7 @@ class QueryProcessor:
             
             # Main agent loop
             for iteration in range(self.max_iterations):
-                self.logger.debug("Starting iteration", {"current": iteration+1, "max": self.max_iterations})
+                # self.logger.debug("Starting iteration", {"current": iteration+1, "max": self.max_iterations})
                 
                 # Get response from model
                 response = await model.execute(tools)
@@ -91,14 +91,15 @@ class QueryProcessor:
                 # Log reasoning content (if exists)
                 reasoning_content = message.get("reasoning_content")
                 if reasoning_content:
-                    self.logger.debug("Reasoning content", {"reasoning": reasoning_content})
+                    self.logger.info("Reasoning content", {"reasoning": reasoning_content})
                 
                 # If there are no tool calls, return final answer
                 if not tool_calls:
                     # Add final answer to conversation history
                     model.add_assistant_message(content)
+                    self.logger.info(content, {"iterations": iteration+1})
                     # Log complete conversation history for final result
-                    self.logger.info(f"Final response ready", {"iterations": iteration+1})
+                    # self.logger.info(f"Final response ready", {"iterations": iteration+1})
                     return content
                 
                 # Process all tool calls in each iteration
@@ -132,13 +133,13 @@ class QueryProcessor:
                             self.logger.warning("Tool call missing 'name' field")
                             continue
                         
-                        self.logger.debug("Calling tool", {"name": tool_name, "args": function_args})
+                        self.logger.info("Calling tool", {"name": tool_name, "args": function_args})
                         
                         # Call the tool
                         try:
                             result = await self.tool_executor.execute_tool(tool_name, function_args)
                             # Add tool execution result log
-                            self.logger.debug("Tool execution result", {"tool": tool_name, "result": result})
+                            self.logger.info("Tool execution result", {"tool": tool_name, "result": result})
                             # Add result to conversation history
                             model.add_tool_result(tool_name, result, tool_call_id)
                                 

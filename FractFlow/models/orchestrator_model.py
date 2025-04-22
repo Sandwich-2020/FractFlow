@@ -120,7 +120,7 @@ class OrchestratorModel(BaseModel):
             reasoning_content = None
             if hasattr(response.choices[0].message, 'reasoning_content'):
                 reasoning_content = response.choices[0].message.reasoning_content
-                self.logger.debug(f"Reasoning content from reasoner: {reasoning_content}")
+                self.logger.info("Reasoning content", {"reasoning_content": reasoning_content})
 
             # --- Multiple Tool Calling Logic ---
             tool_calls = []

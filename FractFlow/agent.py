@@ -158,9 +158,6 @@ class Agent:
         # Process the query
         result = await self._query_processor.process_query(query)
         
-        # Log the result
-        self.logger.info("Query processed", {"result_length": len(result) if result else 0})
-        
         return result 
         
     def get_history(self) -> List[Dict[str, Any]]:

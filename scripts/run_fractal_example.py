@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
 from FractFlow.infra.config import ConfigManager
+from FractFlow.infra.logging_utils import setup_logging
+
+setup_logging(20)
 
 async def main():
     # 1. Load environment variables 

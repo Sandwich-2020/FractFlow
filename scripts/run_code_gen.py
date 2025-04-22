@@ -26,16 +26,17 @@ project_root = osp.abspath(osp.join(osp.dirname(__file__), '..'))
 sys.path.append(project_root)
 
 from FractFlow.infra.logging_utils import setup_logging, get_logger
-
-# 设置日志
-setup_logging(
-    level=logging.WARNING,  # 根logger设置为INFO
-    namespace_levels={
-        "FractFlow": logging.DEBUG,  
-        "tools": logging.DEBUG,
-        "httpx": logging.WARNING,    
-    }
-)
+setup_logging(20)
+# # 设置日志
+# setup_logging(
+#     level=logging.DEBUG,  # 根logger设置为INFO
+#     namespace_levels={
+#         "httpx": logging.WARNING,   
+#         "httpcore": logging.WARNING,
+#         "openai": logging.WARNING,
+#         "httpx": logging.WARNING,
+#     }
+# )
 
 
 # Import the FractalFlow Agent
@@ -47,7 +48,7 @@ async def main():
     load_dotenv()
     
     # 3. Create a new agent
-    agent = Agent()  # No need to specify provider here if it's in config
+    agent = Agent('code_gen')  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     config['agent']['custom_system_prompt'] = 'Given a request about coding, you should use the coordinator_agent to generate the code.'

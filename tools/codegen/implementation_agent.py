@@ -20,18 +20,36 @@ sys.path.insert(0, project_root)
 
 from FractFlow.agent import Agent
 
+from FractFlow.infra.logging_utils import setup_logging, get_logger
+
+# 设置日志
+setup_logging(20)
+# import logging
+# from FractFlow.infra.logging_utils import setup_logging, get_logger
+
+# # 设置日志
+# setup_logging(
+#     level=logging.DEBUG,  # 根logger设置为INFO
+#     namespace_levels={
+#         "httpx": logging.WARNING,   
+#         "httpcore": logging.WARNING,
+#         "openai": logging.WARNING,
+#         "httpx": logging.WARNING,
+#     }
+# )
 # Initialize FastMCP server
 mcp = FastMCP("implementation agent")
 
 @mcp.tool()
-async def implementation_agent(tool_description: str) -> Dict[str, Any]:
+async def implementation_agent(code_description: str, save_dir: str) -> Dict[str, Any]:
     """
     Generate code based on its description and save it to a file. 
 
     Note that this agent only handles one file at a time. 
     
     Args:
-        tool_description: Detailed description of the tool to generate
+        code_description: Detailed description of the code to generate
+        save_dir: Directory to save the generated code
     Returns:
         string containing file_path and success status
     """
@@ -44,7 +62,8 @@ async def implementation_agent(tool_description: str) -> Dict[str, Any]:
     
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
-    config['deepseek']['model'] = 'deepseek-chat'
+    config['deepseek']['model'] = 'deepseek-reasoner'
+    config['agent']['max_iterations'] = 10
     agent.set_config(config)
     # 添加tools.py基础工具
     tools_path = os.path.join(current_dir, "tools.py")
@@ -55,9 +74,9 @@ async def implementation_agent(tool_description: str) -> Dict[str, Any]:
     try:
         # 使用一个简单的提示，让LLM处理所有逻辑
         prompt = f"""
-        请根据以下工具描述，生成完整的Python工具代码并保存到适当的文件中：
+        请根据以下工具描述，生成完整的Python工具代码并保存到路径 {save_dir} 中：
         
-        {tool_description}
+        {code_description}
         
         1. 请分析描述，提取合适的工具名称，生成代码，然后保存。
         2. 请调用工具读取文件，确保其保存成功。
