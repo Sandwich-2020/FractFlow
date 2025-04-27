@@ -1,6 +1,6 @@
 # File I/O Tool
 
-A comprehensive tool for file and directory operations, designed to be used with the EnvisionCore framework.
+A comprehensive tool for file and directory operations, designed to be used with the FractFlow framework.
 
 ## Features
 
@@ -19,7 +19,7 @@ A comprehensive tool for file and directory operations, designed to be used with
 - `src/` - Source code directory
   - `__init__.py` - Package initialization for the source directory
   - `core_logic.py` - Core functions for file operations (read, write, move, copy, delete, etc.)
-  - `server.py` - FastMCP server that exposes file operations as tools for the EnvisionCore framework
+  - `server.py` - FastMCP server that exposes file operations as tools for the FractFlow framework
 - `tests/` - Test directory
   - `__init__.py` - Package initialization for the tests directory
   - `test_core_logic.py` - Unit tests for core file operation functions
