@@ -130,7 +130,7 @@ class Orchestrator:
                 
             if "tools" in config_data and isinstance(config_data["tools"], dict):
                 self.register_tools_from_config(config_data["tools"])
-                self.logger.debug(f"Registered tools from file", {"path": config_file_path, "count": len(config_data["tools"])})
+                self.logger.info(f"Registered tools from file", {"path": config_file_path, "count": len(config_data["tools"])})
             else:
                 self.logger.warning(f"Invalid tools configuration format", {"path": config_file_path})
         except Exception as e:
@@ -156,14 +156,14 @@ class Orchestrator:
         # Launch all registered tool providers
         self.logger.debug("Launching tool providers")
         await self.launcher.launch_all()
-        self.logger.info("Orchestrator started")
+        self.logger.debug("Orchestrator started")
         
     async def shutdown(self) -> None:
         """Shut down the agent system."""
         if self.launcher:
             self.logger.debug("Shutting down orchestrator")
             await self.launcher.shutdown()
-            self.logger.info("Orchestrator shut down")
+            self.logger.debug("Orchestrator shut down")
         
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """

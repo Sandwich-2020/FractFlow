@@ -114,7 +114,7 @@ class OrchestratorModel(BaseModel):
                 return create_error_response(LLMError("Failed to get response from model"))
                 
             content = response.choices[0].message.content
-            self.logger.debug(f"Received response from reasoner: {content[:200]}...")
+            self.logger.info(f"Received response from {self.__class__.__name__} model", {"content": content})
             
             # Extract reasoning content if available
             reasoning_content = None
@@ -135,7 +135,7 @@ class OrchestratorModel(BaseModel):
                 for i, tool_instruction in enumerate(matches):
                     # Extract and clean the instruction text
                     tool_instruction = tool_instruction.strip()
-                    self.logger.debug(f"Processing tool request {i+1}: {tool_instruction[:100]}...")
+                    self.logger.info(f"Processing tool request {i+1}", {"tool_instruction": tool_instruction})
                     
                     # Pass the instruction to the robust tool calling helper
                     self.logger.debug(f"Invoking tool_helper for request {i+1}...")
@@ -144,7 +144,7 @@ class OrchestratorModel(BaseModel):
                     if validated_tool_calls and len(validated_tool_calls) > 0:
                         # Add all valid tool calls to our list
                         tool_calls.extend(validated_tool_calls)
-                        self.logger.info(f"Helper generated {stats['valid_calls']} tool calls for request {i+1}")
+                        self.logger.debug(f"Helper generated {stats['valid_calls']} tool calls for request {i+1}")
                     else:
                         self.logger.error(f"Tool helper failed to generate valid tool calls for request {i+1}")
                         
