@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 run_fractal_example.py
 Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)

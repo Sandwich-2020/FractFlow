@@ -1,3 +1,18 @@
+"""
+Run Server Integration Tests
+
+This module contains integration tests for the file_io tool server.
+Tests interact with the server through the command-line interface, 
+sending queries and verifying that the operations are properly executed on the file system.
+
+These tests use temporary directories to ensure they don't affect the actual file system and
+clean up after themselves.
+
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-27
+License: MIT License
+"""
+
 import os
 import sys
 import pytest
@@ -9,22 +24,22 @@ import time
 from pathlib import Path
 import re
 
-# 添加项目根目录到Python路径
+# Add project root directory to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(project_root)
 
 
 @pytest.fixture
 def temp_test_dir():
-    """创建临时测试目录并在测试后清理"""
+    """Create temporary test directory and clean up after the test"""
     temp_dir = tempfile.mkdtemp()
     
-    # 创建一些测试文件
+    # Create some test files
     test_file = os.path.join(temp_dir, "test_file.txt")
     with open(test_file, "w") as f:
         f.write("This is test content for integration tests")
     
-    # 创建一个子目录
+    # Create a subdirectory
     subdir = os.path.join(temp_dir, "subdir")
     os.makedirs(subdir)
     with open(os.path.join(subdir, "subfile.txt"), "w") as f:
@@ -32,24 +47,24 @@ def temp_test_dir():
     
     yield temp_dir
     
-    # 清理
+    # Clean up
     shutil.rmtree(temp_dir)
 
 
 def run_query(query):
     """
-    运行单个查询并返回结果
+    Run a single query and return the result
     
     Args:
-        query: 要发送到run_server.py的查询字符串
+        query: Query string to send to run_server.py
         
     Returns:
-        str: 命令输出
+        str: Command output
     """
-    # 确定run_server.py的路径
+    # Determine the path to run_server.py
     script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "run_server.py")
     
-    # 使用subprocess执行命令
+    # Use subprocess to execute the command
     process = subprocess.Popen(
         [sys.executable, script_path, "--user_query", query],
         stdout=subprocess.PIPE,
@@ -58,14 +73,14 @@ def run_query(query):
         universal_newlines=True
     )
     
-    # 捕获输出
+    # Capture output
     stdout, stderr = process.communicate(timeout=60)
     
-    # 检查错误
+    # Check for errors
     if process.returncode != 0:
         print(f"Error executing command: {stderr}")
     
-    # 提取结果（去除thinking和其他非结果输出）
+    # Extract the result (remove thinking and other non-result output)
     result_match = re.search(r"Result:\s+(.*?)(?:\n\nAgent session ended\.)?$", stdout, re.DOTALL)
     if result_match:
         return result_match.group(1).strip()
@@ -74,161 +89,161 @@ def run_query(query):
 
 
 def test_read_file_query(temp_test_dir):
-    """测试读取文件的查询"""
+    """Test query for reading a file"""
     test_file = os.path.join(temp_test_dir, "test_file.txt")
     
-    # 运行查询
+    # Run the query
     query = f"Read the file {test_file} and tell me its content"
     result = run_query(query)
     
-    # 验证结果中含有文件内容
+    # Verify that the result contains the file content
     assert "test content for integration tests" in result
 
 
 def test_write_file_query(temp_test_dir):
-    """测试写入文件的查询"""
+    """Test query for writing to a file"""
     new_file = os.path.join(temp_test_dir, "new_file.txt")
     content = "This is new content created during integration testing"
     
-    # 运行查询
+    # Run the query
     query = f"Create a new file at {new_file} with this content: '{content}'"
     result = run_query(query)
     
-    # 验证文件已创建
+    # Verify the file was created
     assert os.path.exists(new_file)
     
-    # 验证内容正确
+    # Verify the content is correct
     with open(new_file, "r") as f:
         file_content = f.read()
     assert content in file_content
 
 
 def test_list_directory_query(temp_test_dir):
-    """测试列出目录内容的查询"""
-    # 运行查询
+    """Test query for listing directory contents"""
+    # Run the query
     query = f"List all files and directories in {temp_test_dir}"
     result = run_query(query)
     
-    # 验证结果包含已知文件
+    # Verify the result includes known files
     assert "test_file.txt" in result
     assert "subdir" in result
 
 
 def test_file_info_query(temp_test_dir):
-    """测试获取文件信息的查询"""
+    """Test query for getting file information"""
     test_file = os.path.join(temp_test_dir, "test_file.txt")
     
-    # 运行查询 - 只请求特定字段
+    # Run the query - only request specific fields
     query = f"Get information about {test_file}, only return the name, size and extension"
     result = run_query(query)
     
-    # 验证结果包含请求的信息
+    # Verify the result contains the requested information
     assert "test_file.txt" in result
     assert "size" in result.lower()
     assert ".txt" in result.lower()
 
 
 def test_copy_file_query(temp_test_dir):
-    """测试复制文件的查询"""
+    """Test query for copying a file"""
     source_file = os.path.join(temp_test_dir, "test_file.txt")
     dest_file = os.path.join(temp_test_dir, "copied_file.txt")
     
-    # 运行查询
+    # Run the query
     query = f"Copy the file from {source_file} to {dest_file}"
     result = run_query(query)
     
-    # 验证文件已复制
+    # Verify the file was copied
     assert os.path.exists(dest_file)
     
-    # 验证内容匹配
+    # Verify the content matches
     with open(source_file, "r") as src, open(dest_file, "r") as dst:
         assert src.read() == dst.read()
 
 
 def test_move_file_query(temp_test_dir):
-    """测试移动文件的查询"""
-    # 先创建一个要移动的文件
+    """Test query for moving a file"""
+    # First create a file to move
     source_file = os.path.join(temp_test_dir, "to_move.txt")
     with open(source_file, "w") as f:
         f.write("This file will be moved")
     
     dest_file = os.path.join(temp_test_dir, "moved_file.txt")
     
-    # 运行查询
+    # Run the query
     query = f"Move the file {source_file} to {dest_file}"
     result = run_query(query)
     
-    # 验证文件已移动
+    # Verify the file was moved
     assert not os.path.exists(source_file)
     assert os.path.exists(dest_file)
 
 
 def test_delete_file_query(temp_test_dir):
-    """测试删除文件的查询"""
-    # 创建一个要删除的文件
+    """Test query for deleting a file"""
+    # Create a file to delete
     file_to_delete = os.path.join(temp_test_dir, "to_delete.txt")
     with open(file_to_delete, "w") as f:
         f.write("This file will be deleted")
     
-    # 验证文件存在
+    # Verify the file exists
     assert os.path.exists(file_to_delete)
     
-    # 运行查询
+    # Run the query
     query = f"Delete the file at {file_to_delete}"
     result = run_query(query)
     
-    # 验证文件已删除
+    # Verify the file was deleted
     assert not os.path.exists(file_to_delete)
 
 
 def test_exists_query(temp_test_dir):
-    """测试检查文件是否存在的查询"""
+    """Test query for checking if a file exists"""
     existing_file = os.path.join(temp_test_dir, "test_file.txt")
     nonexistent_file = os.path.join(temp_test_dir, "does_not_exist.txt")
     
-    # 运行查询 - 存在的文件
+    # Run the query - existing file
     query = f"Check if the file {existing_file} exists"
     result = run_query(query)
     
-    # 验证结果表明文件存在
+    # Verify the result indicates the file exists
     assert "exists" in result.lower() or "true" in result.lower()
     
-    # 运行查询 - 不存在的文件
+    # Run the query - non-existent file
     query = f"Check if the file {nonexistent_file} exists"
     result = run_query(query)
     
-    # 验证结果表明文件不存在
+    # Verify the result indicates the file does not exist
     assert "not" in result.lower() or "false" in result.lower()
 
 
 def test_complex_query(temp_test_dir):
-    """测试复杂的多步骤查询"""
-    # 创建一个子目录用于移动文件
+    """Test complex multi-step query"""
+    # Create a subdirectory for moving files
     new_dir = os.path.join(temp_test_dir, "new_directory")
     source_file = os.path.join(temp_test_dir, "test_file.txt")
     dest_file = os.path.join(new_dir, "moved_test_file.txt")
     
-    # 运行查询 - 创建目录
+    # Run the query - create directory
     query1 = f"Create a directory at {new_dir}"
     run_query(query1)
     
-    # 验证目录已创建
+    # Verify the directory was created
     assert os.path.exists(new_dir)
     assert os.path.isdir(new_dir)
     
-    # 运行查询 - 移动文件到新目录
+    # Run the query - move file to new directory
     query2 = f"Move the file {source_file} to {dest_file}"
     run_query(query2)
     
-    # 验证文件已移动
+    # Verify the file was moved
     assert not os.path.exists(source_file)
     assert os.path.exists(dest_file)
     
-    # 运行查询 - 列出新目录内容
+    # Run the query - list new directory contents
     query3 = f"List all files in {new_dir}"
     result = run_query(query3)
     
-    # 验证结果显示移动的文件
+    # Verify the result shows the moved file
     assert "moved_test_file.txt" in result
 
 

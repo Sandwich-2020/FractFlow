@@ -1,3 +1,19 @@
+"""
+File I/O Tool Server Runner
+
+This module provides the entry point for starting the File I/O Tool server.
+It can be run in two modes:
+1. Interactive chat mode - continuous processing of user queries until exit
+2. Single query mode - processing a single query and then exiting
+
+The module initializes an EnvisionCore agent with the File I/O tool and
+handles user interactions according to the chosen mode.
+
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-27
+License: MIT License
+"""
+
 import asyncio
 import os
 import sys
@@ -14,12 +30,12 @@ from FractFlow.agent import Agent
 from FractFlow.infra.config import ConfigManager
 from FractFlow.infra.logging_utils import setup_logging, get_logger
 
-# 设置日志
+# Setup logging
 setup_logging(level=logging.INFO)
 
 
 async def create_agent():
-    """创建并初始化Agent"""
+    """Create and initialize the Agent"""
     # Create a new agent
     agent = Agent('file_io_agent')  # No need to specify provider here if it's in config
     config = agent.get_config()
@@ -43,7 +59,7 @@ async def create_agent():
 
 
 async def interactive_mode(agent):
-    """交互式聊天模式"""
+    """Interactive chat mode"""
     print("Agent chat started. Type 'exit', 'quit', or 'bye' to end the conversation.")
     while True:
         user_input = input("\nYou: ")
@@ -56,7 +72,7 @@ async def interactive_mode(agent):
 
 
 async def single_query_mode(agent, query):
-    """一次性执行模式"""
+    """One-time execution mode"""
     print(f"Processing query: {query}")
     print("\n thinking... \n", end="")
     result = await agent.process_query(query)
@@ -65,23 +81,23 @@ async def single_query_mode(agent, query):
 
 
 async def main():
-    # 命令行参数解析
+    # Command line argument parsing
     parser = argparse.ArgumentParser(description='Run File I/O Tool Server')
-    parser.add_argument('--user_query', type=str, help='单次查询模式：直接处理这个查询并返回结果')
+    parser.add_argument('--user_query', type=str, help='Single query mode: process this query and exit')
     args = parser.parse_args()
     
-    # 创建Agent
+    # Create Agent
     agent = await create_agent()
     
     try:
         if args.user_query:
-            # 单次查询模式
+            # Single query mode
             await single_query_mode(agent, args.user_query)
         else:
-            # 交互式聊天模式
+            # Interactive chat mode
             await interactive_mode(agent)
     finally:
-        # 关闭Agent
+        # Close Agent
         await agent.shutdown()
         print("\nAgent session ended.")
 

@@ -11,10 +11,61 @@ A comprehensive tool for file and directory operations, designed to be used with
 - Check if files exist
 - Get detailed file information
 
-## Installation
+## Project Structure
+
+- `__init__.py` - Package initialization file
+- `requirements.txt` - Lists required packages (pytest, pytest-asyncio, mcp, pathlib)
+- `run_server.py` - Main entry point for starting the tool server in interactive or single query mode
+- `src/` - Source code directory
+  - `__init__.py` - Package initialization for the source directory
+  - `core_logic.py` - Core functions for file operations (read, write, move, copy, delete, etc.)
+  - `server.py` - FastMCP server that exposes file operations as tools for the EnvisionCore framework
+- `tests/` - Test directory
+  - `__init__.py` - Package initialization for the tests directory
+  - `test_core_logic.py` - Unit tests for core file operation functions
+  - `test_run_server_integration.py` - Integration tests for the server interface
+
+## Environment Setup with uv
+
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver that can be used to create isolated environments. Follow these steps to set up an environment for the File I/O Tool:
 
 ```bash
-pip install -r requirements.txt
+# Navigate to the file_io directory
+cd tools/file_io
+
+# Create a virtual environment
+uv venv
+
+# Activate the virtual environment
+# On Unix/macOS:
+source .venv/bin/activate
+# On Windows:
+# .venv\Scripts\activate
+
+# Install dependencies using uv
+uv pip install -r requirements.txt
+
+# To install dev dependencies or additional packages
+uv pip install pytest pytest-asyncio
+```
+
+## Testing
+
+The tool includes both unit tests and integration tests. You can run the tests using pytest:
+
+```bash
+# Run all tests
+python -m pytest tools/file_io/tests/
+
+# Run specific test file
+python -m pytest tools/file_io/tests/test_core_logic.py
+python -m pytest tools/file_io/tests/test_run_server_integration.py
+
+# Run with verbose output
+python -m pytest -v tools/file_io/tests/
+
+# Run a specific test function
+python -m pytest tools/file_io/tests/test_core_logic.py::test_read_write_file
 ```
 
 ## Usage
@@ -22,82 +73,67 @@ pip install -r requirements.txt
 ### Starting the Tool Server
 
 ```bash
-# 1. 交互式聊天模式
+# 1. Interactive chat mode
 python run_server.py
 
-# 2. 单次查询模式 - 处理单个查询后自动退出
-python run_server.py --user_query "读取文件 /path/to/file.txt 的内容"
+# 2. Single query mode - process a single query and exit automatically
+python run_server.py --user_query "Read the file /path/to/file.txt"
 
-# 3. 导入作为Agent工具
+# 3. Import as an Agent tool
 agent.add_tool("./tools/file_io/src/server.py")
 ```
 
-#### 运行模式
+#### Running Modes
 
-1. **交互式聊天模式** - 默认模式
-   - 启动后进入交互式命令行界面
-   - 可以连续输入多个查询并获得响应
-   - 输入 'exit'、'quit' 或 'bye' 退出
+1. **Interactive Chat Mode** - Default mode
+   - Starts an interactive command line interface
+   - Can input multiple queries and receive responses
+   - Enter 'exit', 'quit', or 'bye' to exit
 
-2. **单次查询模式** - 通过 `--user_query` 参数运行
-   - 自动处理一个查询并显示结果
-   - 处理完成后自动退出
-   - 适合脚本集成和自动化任务
+2. **Single Query Mode** - Run with `--user_query` parameter
+   - Automatically processes one query and displays the result
+   - Exits automatically after processing
+   - Suitable for script integration and automation tasks
 
-示例:
+Examples:
 ```bash
-# 列出目录内容
-python run_server.py --user_query "列出 /tmp 目录中的所有文件"
+# List directory contents
+python run_server.py --user_query "List all files in /tmp directory"
 
-# 创建并写入文件
-python run_server.py --user_query "创建文件 /tmp/test.txt 并写入 'Hello World'"
+# Create and write to a file
+python run_server.py --user_query "Create a file at ~/Downloads/test.txt and write 'Hello World'"
 
-# 获取文件信息
-python run_server.py --user_query "获取文件 /etc/hosts 的详细信息"
+# Get file information
+python run_server.py --user_query "Get detailed information about the file /etc/hosts"
 ```
 
-### API Reference
+---
 
-The following operations are available:
+# Development Guidelines
 
-#### Get File Info
+To ensure consistency and easy integration, please follow these development standards:
 
-```python
-async def info(file_path: str, fields: Optional[List[str]] = None)
-```
+1. **Project Structure**
+   - Follow the standard layout: `src/`, `tests/`, `requirements.txt`, `run_server.py`.
+   - Keep core logic (`core_logic.py`) and server interface (`server.py`) separated.
 
-Get detailed information about a file or directory.
+2. **Environment Management**
+   - Use `uv venv` to create a virtual environment inside each tool directory.
+   - Install dependencies from `requirements.txt`.
+   - Always activate the `.venv` before developing or running the tool.
 
-**Parameters:**
-- `file_path` (str): The absolute or relative path to the file or directory
-- `fields` (Optional[List[str]]): List of specific fields to return. If not provided, returns all available information
+3. **Testing Requirements**
+   - Provide at least one unit test (`test_core_logic.py`) to verify basic functions.
+   - Provide at least one integration test (`test_run_server_integration.py`) to test server interface.
+   - Use `pytest` for all tests.
 
-**Returns:**
-- Dict[str, Any]: A dictionary containing file metadata (filtered by requested fields):
-  - name (str): The name of the file or directory
-  - path (str): The full path to the file or directory
-  - is_dir (bool): Whether the item is a directory
-  - size (int): The size of the file in bytes (None for directories)
-  - created (float): The creation timestamp
-  - modified (float): The last modified timestamp
-  - accessed (float): The last accessed timestamp
-  - extension (str): The file extension (None for directories)
-  - parent (str): The directory containing this file/directory
-  - permissions (int): Unix-style permission bits
-  - owner (int): User ID of the file owner
-  - group (int): Group ID of the file owner
+4. **Coding Style**
+   - Use `snake_case` for all variable, function, and file names.
+   - Write clear docstrings for all public functions and classes.
+   - Avoid hardcoding paths; use parameters or environment variables.
+   - Keep each function small and focused.
 
-**Raises:**
-- `FileNotFoundError`: If the specified file or directory does not exist
-
-**Examples:**
-```python
-# Get all information
-file_info = await info("/path/to/file.txt")
-
-# Get only name and size
-basic_info = await info("/path/to/file.txt", ["name", "size"])
-
-# Get modification information
-mod_info = await info("/path/to/file.txt", ["modified", "accessed"])
-```
+5. **README Requirements**
+   - Document your tool's main functions.
+   - Include a section on environment setup.
+   - Include usage examples (minimum 3 queries).

@@ -1,3 +1,17 @@
+"""
+Core Logic Unit Tests
+
+This module contains unit tests for the core_logic.py module, testing all file I/O
+operations like reading, writing, copying, moving, and deleting files and directories.
+
+The tests use pytest and the pytest-asyncio plugin to test asynchronous functions.
+Each test is isolated using temporary directories to avoid affecting the actual file system.
+
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-27
+License: MIT License
+"""
+
 import os
 import sys
 import pytest

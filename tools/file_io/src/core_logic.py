@@ -1,3 +1,18 @@
+"""
+Core File I/O Logic Module
+
+This module implements the core file and directory operations for the EnvisionCore file_io tool.
+It provides functions for reading, writing, copying, moving, and deleting files and directories,
+as well as for retrieving file information and checking file existence.
+
+All functions are implemented as async to maintain compatibility with the server interface,
+although the underlying operations are synchronous file system calls.
+
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-27
+License: MIT License
+"""
+
 import os
 import json
 import shutil

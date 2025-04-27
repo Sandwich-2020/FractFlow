@@ -1,3 +1,23 @@
+"""
+File I/O Tool Server Module
+
+This module provides a FastMCP server that exposes file and directory operations as tools.
+It wraps the core file I/O logic in a server interface that can be used by the EnvisionCore
+framework. Each tool is exposed as an endpoint that can be called by the EnvisionCore agent.
+
+The server provides tools for:
+- Reading and writing files
+- Listing directory contents
+- Moving, copying, and deleting files and directories
+- Checking file existence
+- Getting detailed file information
+- Creating directories
+
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-04-27
+License: MIT License
+"""
+
 from mcp.server.fastmcp import FastMCP
 import os
 import sys

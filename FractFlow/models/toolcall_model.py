@@ -119,7 +119,7 @@ The number of tool calls in the array should match exactly what's needed - don't
 For simple requests needing only one tool call, return an array with just one element.
 Output JSON only, no other text. The arguments must be a valid JSON string (with escaped quotes)."""
     
-    async def _create_chat_completion(self, **kwargs) -> Any:
+    async def _create_chat_completion(self, **kwargs) -> Tuple[Optional[Any], Optional[Exception]]:
         """
         Handle API call to the model provider.
         
@@ -127,7 +127,9 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             **kwargs: Arguments to pass to the chat completions API
             
         Returns:
-            The API response or None if failed
+            Tuple containing:
+            - The API response or None if failed
+            - The exception if an error occurred, or None if successful
         """
         try:
             # Make sure client is initialized
@@ -142,11 +144,11 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             self.logger.debug("Calling chat completion API")
             result = self.client.chat.completions.create(**kwargs)
             self.logger.debug("API call successful")
-            return await result if hasattr(result, "__await__") else result
+            return await result if hasattr(result, "__await__") else result, None
         except Exception as e:
             error = handle_error(e, {"kwargs": kwargs})
             self.logger.error(f"API call error", {"error": str(error)})
-            return None
+            return None, error
     
     async def _parse_model_response(self, response: Any) -> Optional[List[Dict[str, Any]]]:
         """
@@ -212,7 +214,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
     
     async def call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
-        Execute a tool call using retry mechanism.
+        Execute a tool call using adaptive retry mechanism.
         Can generate multiple tool calls from a single instruction.
         
         Args:
@@ -230,64 +232,78 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             "success": False,
             "valid_calls": 0,
             "invalid_calls": 0,
-            "total_calls": 0
+            "total_calls": 0,
+            "errors": []
         }
         
         self.logger.debug("Starting tool call generation", {"tools_available": len(tools)})
         
+        # Track modifications for adaptive retries
+        current_instruction = instruction
+        current_tools = tools
+        
         # Try multiple times to get valid tool calls
         for attempt in range(self.max_retries):
-            try:
-                stats["attempts"] = attempt + 1
-                self.logger.debug(f"Tool call attempt", {"attempt": attempt+1, "max": self.max_retries})
+            stats["attempts"] = attempt + 1
+            self.logger.debug(f"Tool call attempt", {"attempt": attempt+1, "max": self.max_retries})
+            
+            # Call the internal method to get tool calls
+            tool_calls, error = await self._internal_call_tool(current_instruction, current_tools)
+            
+            # If there was an error, adapt parameters for next attempt
+            if error:
+                error_str = str(error)
+                self.logger.warning(f"Error on attempt {attempt+1}: {error_str}")
+                stats["errors"].append(error_str)
                 
-                # Call the internal method to get tool calls
-                tool_calls = await self._internal_call_tool(instruction, tools)
-                
-                # Skip if no response was received
-                if not tool_calls:
-                    self.logger.warning(f"No response from model on attempt", {"attempt": attempt+1})
-                    continue
-                
-                stats["total_calls"] = len(tool_calls)
-                
-                # Validate each tool call and keep valid ones
-                valid_tool_calls = []
-                for i, call in enumerate(tool_calls):
-                    if self._validate_tool_call(call, available_tools):
-                        valid_tool_calls.append(call)
-                        stats["valid_calls"] += 1
-                    else:
-                        self.logger.warning(f"Invalid tool call", {
-                            "index": i,
-                            "attempt": attempt+1,
-                            "tool": call.get("function", {}).get("name", "unknown")
-                        })
-                        stats["invalid_calls"] += 1
-                
-                # If we have at least one valid call, consider it a success
-                if valid_tool_calls:
-                    self.logger.debug(f"Generated valid tool calls", {
-                        "count": len(valid_tool_calls), 
-                        "attempt": attempt+1
-                    })
-                    stats["success"] = True
-                    return valid_tool_calls, stats
+                # Implement adaptive strategy based on previous errors
+                current_instruction, current_tools = await self._adapt_parameters(
+                    current_instruction, 
+                    current_tools, 
+                    error, 
+                    attempt
+                )
+                continue
+            
+            # Skip if no response was received
+            if not tool_calls:
+                self.logger.warning(f"No response from model on attempt", {"attempt": attempt+1})
+                continue
+            
+            stats["total_calls"] = len(tool_calls)
+            
+            # Validate each tool call and keep valid ones
+            valid_tool_calls = []
+            for i, call in enumerate(tool_calls):
+                if self._validate_tool_call(call, available_tools):
+                    valid_tool_calls.append(call)
+                    stats["valid_calls"] += 1
                 else:
-                    self.logger.warning(f"No valid tool calls on attempt", {"attempt": attempt+1})
-                    continue
-                
-            except Exception as e:
-                error = handle_error(e, {"instruction": instruction, "attempt": attempt+1})
-                self.logger.error(f"Error on tool call attempt", {"attempt": attempt+1, "error": str(error)})
-                # Continue to the next attempt rather than failing immediately
-        
+                    self.logger.warning(f"Invalid tool call", {
+                        "index": i,
+                        "attempt": attempt+1,
+                        "tool": call.get("function", {}).get("name", "unknown")
+                    })
+                    stats["invalid_calls"] += 1
+            
+            # If we have at least one valid call, consider it a success
+            if valid_tool_calls:
+                self.logger.debug(f"Generated valid tool calls", {
+                    "count": len(valid_tool_calls), 
+                    "attempt": attempt+1
+                })
+                stats["success"] = True
+                return valid_tool_calls, stats
+            else:
+                self.logger.warning(f"No valid tool calls on attempt", {"attempt": attempt+1})
+                continue
+            
         # If we exhausted all retries without success
         self.logger.error(f"Failed to generate valid tool calls after all attempts", {"max": self.max_retries})
         stats["success"] = False
         return [], stats
     
-    async def _internal_call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+    async def _internal_call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Exception]]:
         """
         Internal method to call the model and get tool call responses.
         
@@ -296,12 +312,14 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             tools: List of available tools
             
         Returns:
-            List of tool calls or None if failed
+            Tuple containing:
+            - List of tool calls or None if failed
+            - Exception if an error occurred, or None if successful
         """
         try:
             # Call the model with appropriate formatting
             self.logger.debug("Calling model with instruction")
-            response = await self._create_chat_completion(
+            response, error = await self._create_chat_completion(
                 messages=[
                     {"role": "system", "content": self.create_system_prompt(tools)},
                     {"role": "user", "content": instruction}
@@ -309,17 +327,118 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                 response_format={"type": "json_object"}
             )
             
+            if error:
+                return None, error
+                
             if not response:
                 self.logger.warning("No response from model")
-                return None
+                return None, None
             
             # Parse the response
-            return await self._parse_model_response(response)
+            tool_calls = await self._parse_model_response(response)
+            return tool_calls, None
                 
         except Exception as e:
             error = handle_error(e, {"instruction": instruction})
             self.logger.error(f"Internal tool calling error", {"error": str(error)})
-            return None
+            return None, error
+    
+    async def _adapt_parameters(self, instruction: str, tools: List[Dict[str, Any]], 
+                              error: Exception, attempt: int) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Adapt parameters based on error by using a LLM to rewrite the instruction.
+        
+        Args:
+            instruction: Current instruction
+            tools: Current tools list
+            error: Error from previous attempt
+            attempt: Attempt number (0-indexed)
+            
+        Returns:
+            Tuple of (adapted_instruction, adapted_tools)
+        """
+        error_str = str(error)
+        tools_count = len(tools)
+        
+        # For first attempt, we might try a simple approach by reducing tools
+        if attempt == 0 and tools_count > 3:
+            # Just reduce tools on first error to avoid unnecessary API calls
+            keep_count = max(3, tools_count // 2)
+            adapted_tools = tools[:keep_count]
+            self.logger.info(f"First attempt adapting: reducing tool count", {
+                "original_count": tools_count,
+                "new_count": keep_count
+            })
+            return instruction, adapted_tools
+        
+        # For subsequent attempts, use LLM to rewrite the instruction
+        try:
+            # Create a prompt for the LLM to rewrite the instruction
+            system_prompt = """You are an AI assistant that helps rewrite instructions that failed due to API errors.
+Your task is to rewrite the instruction to make it more concise while preserving its core intent.=
+DO NOT add explanations or commentary - just provide the rewritten instruction."""
+
+            user_prompt = f"""The following instruction caused an error when processed:
+
+ORIGINAL INSTRUCTION:
+{instruction}
+
+ERROR MESSAGE:
+{error_str}
+
+Please rewrite this instruction based on the error message while maintaining its core intent.
+"""
+
+            # Call the API to rewrite the instruction
+            response, rewrite_error = await self._create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model=self.model  # Use same model for consistency
+            )
+            
+            if rewrite_error or not response:
+                self.logger.warning(f"Failed to rewrite instruction using LLM", {
+                    "error": str(rewrite_error) if rewrite_error else "No response"
+                })
+                # Fall back to simple truncation if LLM rewrite fails
+                adaptation_factor = min(0.3 * (attempt + 1), 0.8)
+                reduced_length = max(50, int(len(instruction) * (1 - adaptation_factor)))
+                adapted_instruction = instruction[:reduced_length]
+            else:
+                # Extract the rewritten instruction
+                adapted_instruction = response.choices[0].message.content.strip()
+                
+            # Always reduce tools count for each retry
+            keep_count = max(1, int(tools_count * (1 - min(0.25 * attempt, 0.75))))
+            adapted_tools = tools[:keep_count] if keep_count < tools_count else tools.copy()
+            
+            self.logger.info(f"Adapting parameters for attempt {attempt+1}", {
+                "original_instruction_length": len(instruction),
+                "adapted_instruction_length": len(adapted_instruction),
+                "original_tools_count": tools_count,
+                "adapted_tools_count": len(adapted_tools),
+                "rewritten_by_llm": rewrite_error is None and response is not None
+            })
+            
+            return adapted_instruction, adapted_tools
+            
+        except Exception as e:
+            self.logger.error(f"Error during instruction adaptation", {"error": str(e)})
+            # In case of any error in adaptation, fall back to simple truncation
+            if len(instruction) > 100:
+                adapted_instruction = instruction[:100]
+            else:
+                adapted_instruction = instruction
+                
+            # Maybe reduce tools if we have many
+            if tools_count > 2:
+                adapted_tools = tools[:2]  # Keep just first two tools in case of error
+            else:
+                adapted_tools = tools.copy()
+                
+            return adapted_instruction, adapted_tools
     
     def _validate_tool_call(self, tool_call: Dict[str, Any], available_tools: List[str]) -> bool:
         """
