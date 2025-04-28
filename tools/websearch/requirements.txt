@@ -1,0 +1,5 @@
+# Requirements for the websearch tool
+requests>=2.25.0
+beautifulsoup4>=4.9.3
+mcp>=0.1.0
+pyyaml==6.0.2
