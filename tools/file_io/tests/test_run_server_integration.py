@@ -196,6 +196,43 @@ def test_delete_file_query(temp_test_dir):
     assert not os.path.exists(file_to_delete)
 
 
+def test_insert_file_query(temp_test_dir):
+    """Test query for inserting content into a file"""
+    # Create a test file
+    test_file = os.path.join(temp_test_dir, "insert_test.txt")
+    initial_content = "First line\nThird line"
+    with open(test_file, "w") as f:
+        f.write(initial_content)
+    
+    # Run the query to insert by line
+    query1 = f"Insert 'Second line' into the file {test_file} at line 2"
+    result = run_query(query1)
+    
+    # Verify content was inserted correctly
+    with open(test_file, "r") as f:
+        content = f.read()
+    expected = "First line\nSecond line\nThird line"
+    assert content == expected or "Second line" in content
+    
+    # Test inserting by pattern
+    query2 = f"Insert ' - modified' after the pattern 'Second line' in the file {test_file}"
+    result = run_query(query2)
+    
+    # Verify content was inserted after the pattern
+    with open(test_file, "r") as f:
+        content = f.read()
+    assert "Second line - modified" in content
+    
+    # Test inserting at byte offset
+    query3 = f"Insert ' (start) ' at the beginning of file {test_file}"
+    result = run_query(query3)
+    
+    # Verify content was inserted at the beginning
+    with open(test_file, "r") as f:
+        content = f.read()
+    assert content.startswith(" (start) ")
+
+
 def test_exists_query(temp_test_dir):
     """Test query for checking if a file exists"""
     existing_file = os.path.join(temp_test_dir, "test_file.txt")

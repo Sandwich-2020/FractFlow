@@ -30,7 +30,8 @@ from src.core_logic import (
     move_file,
     copy_file,
     file_exists,
-    get_file_info
+    get_file_info,
+    insert_file
 )
 
 # ===== PYTEST EXPLANATIONS =====
@@ -315,3 +316,149 @@ async def test_get_file_info(temp_dir):
     dir_info = await get_file_info(temp_dir)
     assert dir_info["is_dir"] is True  # Should be identified as a directory
     assert dir_info["extension"] is None  # Directories have no extensions 
+
+# Import the insert_file function
+from src.core_logic import insert_file
+
+@pytest.mark.asyncio
+async def test_insert_file_by_line(temp_dir):
+    """
+    Test inserting content into a file by line number.
+    
+    This test:
+    1. Creates a test file with multiple lines
+    2. Inserts new content at a specific line
+    3. Verifies the content was inserted correctly
+    4. Tests different line positions (beginning, middle, end)
+    """
+    file_path = os.path.join(temp_dir, "insert_test.txt")
+    
+    # Create a test file with multiple lines
+    original_content = "Line 1\nLine 2\nLine 4"
+    with open(file_path, "w") as f:
+        f.write(original_content)
+    
+    # Insert at line 3 (between Line 2 and Line 4)
+    new_line = "Line 3"
+    result = await insert_file(file_path, new_line, 3, by_line=True)
+    assert result is True
+    
+    # Read the file and verify content
+    with open(file_path, "r") as f:
+        content = f.read()
+    
+    expected = "Line 1\nLine 2\nLine 3\nLine 4"
+    assert content == expected
+    
+    # Test inserting at the beginning (line 1)
+    result = await insert_file(file_path, "First Line", 1, by_line=True)
+    with open(file_path, "r") as f:
+        content = f.read()
+    
+    assert content.startswith("First Line\nLine 1")
+    
+    # Test inserting at the end (beyond last line)
+    result = await insert_file(file_path, "Last Line", 10, by_line=True)
+    with open(file_path, "r") as f:
+        content = f.read()
+    
+    assert content.endswith("Line 4\nLast Line")
+
+@pytest.mark.asyncio
+async def test_insert_file_by_offset(temp_dir):
+    """
+    Test inserting content into a file by byte offset.
+    
+    This test:
+    1. Creates a test file with content
+    2. Inserts new content at a specific byte offset
+    3. Verifies the content was inserted correctly
+    """
+    file_path = os.path.join(temp_dir, "insert_offset.txt")
+    
+    # Create a test file
+    original_content = "Hello, world!"
+    with open(file_path, "w") as f:
+        f.write(original_content)
+    
+    # Insert at offset 7 (after "Hello, ")
+    result = await insert_file(file_path, "beautiful ", 7)
+    assert result is True
+    
+    # Read the file and verify content
+    with open(file_path, "r") as f:
+        content = f.read()
+    
+    expected = "Hello, beautiful world!"
+    assert content == expected
+    
+    # Test inserting at the beginning (offset 0)
+    result = await insert_file(file_path, "Oh, ", 0)
+    with open(file_path, "r") as f:
+        content = f.read()
+    
+    assert content == "Oh, Hello, beautiful world!"
+
+@pytest.mark.asyncio
+async def test_insert_file_by_pattern(temp_dir):
+    """
+    Test inserting content into a file after a pattern.
+    
+    This test:
+    1. Creates a test file with content
+    2. Inserts new content after a specific pattern
+    3. Verifies the content was inserted correctly
+    4. Tests error handling for non-existent patterns
+    """
+    file_path = os.path.join(temp_dir, "insert_pattern.txt")
+    
+    # Create a test file
+    original_content = "This is a test for pattern insertion."
+    with open(file_path, "w") as f:
+        f.write(original_content)
+    
+    # Insert after pattern "a test"
+    result = await insert_file(file_path, " case", "a test")
+    assert result is True
+    
+    # Read the file and verify content
+    with open(file_path, "r") as f:
+        content = f.read()
+    
+    expected = "This is a test case for pattern insertion."
+    assert content == expected
+    
+    # Test non-existent pattern
+    with pytest.raises(ValueError) as excinfo:
+        await insert_file(file_path, "content", "nonexistent pattern")
+    
+    assert "not found" in str(excinfo.value)
+
+@pytest.mark.asyncio
+async def test_insert_file_binary(temp_dir):
+    """
+    Test inserting binary content into a file.
+    
+    This test:
+    1. Creates a test binary file
+    2. Inserts binary content at a specific position
+    3. Verifies the content was inserted correctly
+    """
+    file_path = os.path.join(temp_dir, "binary.bin")
+    
+    # Create a binary file
+    binary_content = b'\x01\x02\x03\x05'
+    with open(file_path, "wb") as f:
+        f.write(binary_content)
+    
+    # Insert binary content after byte 3
+    insert_content = b'\x04'
+    result = await insert_file(file_path, insert_content, 3, binary=True)
+    assert result is True
+    
+    # Read the file and verify content
+    with open(file_path, "rb") as f:
+        content = f.read()
+    
+    expected = b'\x01\x02\x03\x04\x05'
+    assert content == expected 

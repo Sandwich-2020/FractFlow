@@ -90,6 +90,121 @@ async def write_file(file_path: str, content: Union[str, bytes], binary: bool = 
     return True
 
 
+async def insert_file(file_path: str, content: Union[str, bytes], position: Union[int, str], 
+                     by_line: bool = False, binary: bool = False) -> bool:
+    """
+    Insert content into a file at a specific position.
+    
+    Args:
+        file_path (str): Path to the file to modify
+        content (Union[str, bytes]): Content to insert
+        position (Union[int, str]): Position to insert at (line number, byte offset, or pattern)
+        by_line (bool): If True, position is interpreted as line number, otherwise as byte offset
+        binary (bool): Whether to operate in binary mode
+        
+    Returns:
+        bool: True if successful
+        
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        PermissionError: If access is denied
+        ValueError: If position is invalid
+    """
+    # Expand the path for ~ and environment variables
+    file_path = expand_path(file_path)
+    
+    # Check if file exists
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    # Read mode depends on binary flag
+    read_mode = "rb" if binary else "r"
+    write_mode = "wb" if binary else "w"
+    
+    # Handle insertion by line
+    if by_line:
+        if not isinstance(position, int):
+            try:
+                position = int(position)
+            except ValueError:
+                raise ValueError("When by_line is True, position must be a line number (integer)")
+        
+        # Line numbers are 1-indexed for user convenience
+        line_index = position - 1
+        if line_index < 0:
+            raise ValueError("Line number must be positive")
+        
+        # Read existing lines
+        with open(file_path, read_mode) as file:
+            if binary:
+                lines = file.read().split(b'\n')
+            else:
+                lines = file.read().splitlines()
+        
+        # Insert content at specified line
+        if line_index > len(lines):
+            # If position is beyond the end of file, append to the end
+            if binary:
+                lines.append(content)
+            else:
+                lines.append(content)
+        else:
+            if binary:
+                lines.insert(line_index, content)
+            else:
+                lines.insert(line_index, content)
+        
+        # Write back to file
+        with open(file_path, write_mode) as file:
+            if binary:
+                file.write(b'\n'.join(lines))
+            else:
+                file.write('\n'.join(lines))
+    
+    # Handle insertion by byte offset
+    else:
+        if isinstance(position, str):
+            # Handle pattern-based insertion
+            with open(file_path, read_mode) as file:
+                content_before = file.read()
+            
+            if binary and isinstance(position, str):
+                # Convert string pattern to bytes for binary mode
+                pattern = position.encode()
+            else:
+                pattern = position
+            
+            # Find pattern in content
+            if binary:
+                pattern_index = content_before.find(pattern)
+            else:
+                pattern_index = content_before.find(pattern)
+            
+            if pattern_index == -1:
+                raise ValueError(f"Pattern '{position}' not found in file")
+            
+            # Use pattern index as position
+            position = pattern_index + len(pattern)
+        else:
+            try:
+                position = int(position)
+            except ValueError:
+                raise ValueError("Position must be a byte offset (integer) or a pattern (string)")
+        
+        # Read file content
+        with open(file_path, read_mode) as file:
+            content_before = file.read(position)
+            content_after = file.read()
+        
+        # Write modified content
+        with open(file_path, write_mode) as file:
+            file.write(content_before)
+            file.write(content)
+            file.write(content_after)
+    
+    return True
+
+
 async def list_directory(directory_path: str) -> List[Dict[str, Any]]:
     """
     List all files and directories in the specified directory.

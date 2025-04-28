@@ -22,7 +22,7 @@ from mcp.server.fastmcp import FastMCP
 import os
 import sys
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union
 # Add the parent directory to the path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -36,7 +36,8 @@ from core_logic import (
     file_exists, 
     get_file_info,
     create_directory as create_dir_core,
-    expand_path
+    expand_path,
+    insert_file
 )
 
 # Initialize MCP server
@@ -78,6 +79,41 @@ async def write(file_path: str, content: str, binary: bool = False):
         IOError: If the write operation fails
     """
     return await write_file(file_path, content, binary)
+
+@mcp.tool()
+async def insert(file_path: str, content: str, position: Union[int, str], by_line: bool = False, binary: bool = False):
+    """
+    Insert content into a file at a specific position without overwriting the entire file.
+    
+    Parameters:
+        file_path (str): The absolute or relative path to the file
+        content (str): The content to insert
+        position (Union[int, str]): Position to insert at:
+            - If by_line=True: The line number (1-indexed)
+            - If by_line=False and position is int: The byte offset
+            - If by_line=False and position is str: A pattern after which to insert
+        by_line (bool, optional): If True, position is interpreted as line number, otherwise as byte offset. Defaults to False.
+        binary (bool, optional): Whether to operate in binary mode. Defaults to False.
+        
+    Returns:
+        bool: True if the insert operation was successful
+        
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        PermissionError: If access is denied
+        ValueError: If position is invalid or pattern not found
+        
+    Examples:
+        # Insert at line 3
+        insert("/path/to/file.txt", "New line content", 3, by_line=True)
+        
+        # Insert at byte offset 100
+        insert("/path/to/file.txt", "New content", 100)
+        
+        # Insert after pattern
+        insert("/path/to/file.txt", "New content", "PATTERN_TO_FIND")
+    """
+    return await insert_file(file_path, content, position, by_line, binary)
 
 @mcp.tool()
 async def list_files(directory_path: str):
