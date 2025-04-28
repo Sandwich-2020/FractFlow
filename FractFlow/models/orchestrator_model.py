@@ -97,11 +97,11 @@ class OrchestratorModel(BaseModel):
         """
         try:
             # Format history using the adapter
-            # Pass tools=None here, as the main model only generates instructions, not calls
+            # Pass tools to the main model so it knows what tools are available
             formatted_messages = self.history_adapter.format_for_model(
-                self.history.get_messages(), tools=None  
+                self.history.get_messages(), tools=tools
             )
-            
+            self.logger.debug(f"Formatted messages: {formatted_messages}")
             # Get model response
             self.logger.debug(f"Calling {self.__class__.__name__} model: {self.model}")
             response = await self._create_chat_completion(
