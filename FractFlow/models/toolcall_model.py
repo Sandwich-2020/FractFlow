@@ -251,7 +251,7 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             tool_calls, error = await self._internal_call_tool(current_instruction, current_tools)
             
             # If there was an error, adapt parameters for next attempt
-            if error:
+            if error or not tool_calls:
                 error_str = str(error)
                 self.logger.warning(f"Error on attempt {attempt+1}: {error_str}")
                 stats["errors"].append(error_str)
@@ -263,12 +263,9 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                     error, 
                     attempt
                 )
+                self.logger.debug("Toolcall model: Modified Instruction and Tools", {"instruction": current_instruction, "tools": current_tools})
                 continue
             
-            # Skip if no response was received
-            if not tool_calls:
-                self.logger.warning(f"No response from model on attempt", {"attempt": attempt+1})
-                continue
             
             stats["total_calls"] = len(tool_calls)
             

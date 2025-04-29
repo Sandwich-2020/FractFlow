@@ -79,7 +79,7 @@ class Agent:
         # Simply delegate to the config manager
         self.config.set_config(config)
     
-    def add_tool(self, tool_path: str, tool_name: Optional[str] = None) -> None:
+    def add_tool(self, tool_path: str, tool_name: str) -> None:
         """
         Add a tool to the agent.
         
@@ -89,9 +89,6 @@ class Agent:
         """
         if not os.path.exists(tool_path):
             raise ValueError(f"Tool script not found: {tool_path}")
-        
-        if tool_name is None:
-            tool_name = os.path.basename(tool_path)
         
         self.tool_configs[tool_name] = tool_path
     

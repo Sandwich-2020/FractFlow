@@ -17,19 +17,61 @@ from ..infra.error_handling import LLMError, handle_error, create_error_response
 from ..conversation.base_history import ConversationHistory
 from ..infra.logging_utils import get_logger
 
-# Instructions for the main reasoner model on how to request a tool call
-TOOL_REQUEST_INSTRUCTIONS = """When you determine that a tool is needed to answer the user's request or perform an action, you MUST issue a tool request instruction. 
-Do NOT attempt to generate the final tool call JSON yourself.
+# Instructions for the main reasoner model on how to request tool calls with ReAct methodology
+TOOL_REQUEST_INSTRUCTIONS = """You operate using the ReAct (Reasoning + Acting) methodology, with support for both sequential and parallel tool execution.
 
-To request a tool call, include the following tag anywhere in your response, containing the specific instruction for the tool:
-<tool_request>Instruction text for the tool call expert here.</tool_request>
+GENERAL PRINCIPLES:
+1. First THINK about what information you need and which tools would provide it
+2. Then REQUEST appropriate tools using the <tool_request> tag
+3. After receiving results, OBSERVE the outcomes
+4. Then DECIDE whether to use more tools or provide a final answer
 
-For example:
-User: What's the weather in London?
-Assistant: Okay, I can find that for you.
-<tool_request>Get the current weather for London, UK.</tool_request>
+SEQUENTIAL VS PARALLEL TOOL CALLS:
+- SEQUENTIAL: Use when the output of one tool is needed as input for another tool
+- PARALLEL: Use when multiple independent pieces of information are needed at once
 
-If no tool is needed, simply provide a direct answer or explanation without the <tool_request> tag."""
+For SEQUENTIAL dependencies (when tools depend on each other's results):
+- Request ONE tool at a time using a single <tool_request> tag
+- Wait for each result before requesting the next tool
+- Use previous results to inform subsequent tool requests
+
+For PARALLEL execution (when tools don't depend on each other):
+- You may include MULTIPLE <tool_request> tags in one response
+- Each tag should contain ONE specific tool instruction
+- All parallel tools will execute before you receive any results
+
+TO REQUEST TOOLS:
+<tool_request>Clear instruction for exactly ONE tool call</tool_request>
+
+EXAMPLES:
+
+Example 1 - Sequential dependency (correct approach):
+User: Find security vulnerabilities in my code and fix them.
+Assistant: I'll first search for potential vulnerabilities.
+<tool_request>Scan the codebase for security vulnerabilities.</tool_request>
+
+[After receiving scan results]
+Assistant: I found some vulnerabilities. Now I'll fix the most critical one.
+<tool_request>Apply security patch to fix SQL injection in login.php.</tool_request>
+
+Example 2 - Parallel execution (correct approach):
+User: Summarize today's weather and news headlines.
+Assistant: I'll gather both weather and news information for you.
+<tool_request>Get today's weather forecast for the user's location.</tool_request>
+<tool_request>Retrieve today's top news headlines.</tool_request>
+
+Example 3 - Mixed approach:
+User: Compare performance metrics across our three products and suggest improvements.
+Assistant: I'll gather performance data for all products simultaneously.
+<tool_request>Get performance metrics for Product A.</tool_request>
+<tool_request>Get performance metrics for Product B.</tool_request>
+<tool_request>Get performance metrics for Product C.</tool_request>
+
+[After receiving all metrics]
+Assistant: Now I'll analyze which product needs the most improvement.
+<tool_request>Run detailed analysis on Product B's performance bottlenecks.</tool_request>
+
+If no tool is needed, simply provide a direct answer without any <tool_request> tags."""
 
 # Default personality component that can be customized
 DEFAULT_PERSONALITY = "You are an intelligent assistant. You carefully analyze user requests and determine if external tools are needed."
@@ -101,7 +143,6 @@ class OrchestratorModel(BaseModel):
             formatted_messages = self.history_adapter.format_for_model(
                 self.history.get_messages(), tools=tools
             )
-            self.logger.debug(f"Formatted messages: {formatted_messages}")
             # Get model response
             self.logger.debug(f"Calling {self.__class__.__name__} model: {self.model}")
             response = await self._create_chat_completion(

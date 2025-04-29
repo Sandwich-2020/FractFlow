@@ -28,7 +28,7 @@ def format_extra_as_yaml(record):
     # If there are any extra fields, format them as YAML
     if extras:
         # Convert to YAML, remove the document start marker
-        yaml_str = yaml.dump(extras, default_flow_style=False, sort_keys=False).strip()
+        yaml_str = yaml.dump(extras, default_flow_style=False, sort_keys=False, allow_unicode=True).strip()
         if yaml_str.startswith('---'):
             yaml_str = yaml_str[3:].strip()
         # Indent each line for better visual separation

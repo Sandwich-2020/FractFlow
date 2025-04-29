@@ -39,14 +39,14 @@ async def weather_agent(user_input: str) -> str:
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
-    config['deepseek']['model'] = 'deepseek-reasoner'
+    config['deepseek']['model'] = 'deepseek-chat'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
     
-    agent.add_tool("./tools/forecast.py")
+    agent.add_tool("./tools/forecast.py", 'weather tool')
     print("Added weather tool")
     
     # Initialize the agent (starts up the tool servers)

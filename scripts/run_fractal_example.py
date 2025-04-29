@@ -41,7 +41,7 @@ async def main():
     agent.set_config(config)
     
     
-    agent.add_tool("./tools/fractal_weather_tool.py")
+    agent.add_tool("./tools/fractal_weather_tool.py", 'weather tool')
     print("Added fractal_weather tool")
     
     # Initialize the agent (starts up the tool servers)
