@@ -43,16 +43,22 @@ class ConfigManager:
                 'base_url': None,
                 'model': 'gpt-4',
                 'tool_calling_model': 'gpt-3.5-turbo',
+                'max_tokens': 4096,
+                'temperature': 1,
             },
             'deepseek': {
                 'api_key': None,
                 'base_url': 'https://api.deepseek.com',
                 'model': 'deepseek-chat',
+                'max_tokens': 4096,
+                'temperature': 1,
             },
             'qwen': {
                 'api_key': None,
                 'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 'model': 'qwen-plus',
+                'max_tokens': 4096,
+                'temperature': 1,
             },
             'agent': {
                 'max_iterations': 10,

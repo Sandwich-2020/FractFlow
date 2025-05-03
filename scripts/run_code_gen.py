@@ -60,7 +60,7 @@ async def main():
     agent.set_config(config)
     
     # Add tools to the agent
-    agent.add_tool("./tools/codegen/coordinator_agent.py")
+    agent.add_tool("./tools/codegen/coordinator_agent.py", "coordinator_agent")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()

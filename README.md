@@ -92,7 +92,7 @@ async def main():
     agent.set_config(config)
     
     # Add tools
-    agent.add_tool("./tools/weather/forecast.py")
+    agent.add_tool("./tools/weather/forecast.py", "forecast_tool")
     
     # Initialize Agent
     await agent.initialize()
@@ -217,7 +217,7 @@ async def main():
     
     # Add tools
     if os.path.exists("./tools/weather/forecast.py"):
-        agent.add_tool("./tools/weather/forecast.py")
+        agent.add_tool("./tools/weather/forecast.py", "forecast_tool")
         print("Added weather tool")
     
     # Initialize Agent
@@ -291,7 +291,7 @@ async def weather_agent(user_input: str) -> str:
     
     # Add tools
     if os.path.exists("./tools/weather/forecast.py"):
-        agent.add_tool("./tools/weather/forecast.py")
+        agent.add_tool("./tools/weather/forecast.py", "forecast_tool")
         print("Added weather tool")
     
     # Initialize Agent

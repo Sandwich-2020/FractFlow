@@ -56,7 +56,7 @@ async def main():
     # Add tools to the agent
     # agent.add_tool("./tools/ComfyUITool.py")
     # agent.add_tool("./tools/VisualQestionAnswer.py")
-    agent.add_tool("./tools/forecast.py")
+    agent.add_tool("./tools/forecast.py", "forecast_tool")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()

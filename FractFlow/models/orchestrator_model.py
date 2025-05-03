@@ -102,6 +102,7 @@ class OrchestratorModel(BaseModel):
             config = ConfigManager()
             
         self.config = config
+        self.provider_name = provider_name
         
         # Initialize logger
         self.logger = get_logger(self.config.get_call_path())
@@ -224,6 +225,13 @@ class OrchestratorModel(BaseModel):
             The API response or None if failed
         """
         try:
+            # Add max_tokens and temperature to API call parameters if not already present
+            if 'max_tokens' not in kwargs:
+                kwargs['max_tokens'] = self.config.get(f'{self.provider_name}.max_tokens')
+            
+            if 'temperature' not in kwargs:
+                kwargs['temperature'] = self.config.get(f'{self.provider_name}.temperature')
+                
             result = self.client.chat.completions.create(**kwargs)
             return await result if hasattr(result, "__await__") else result
         except Exception as e:

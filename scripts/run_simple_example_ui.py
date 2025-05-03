@@ -31,8 +31,8 @@ async def main():
     agent.set_config(config)
     
     # Add tools
-    agent.add_tool("./tools/ComfyUITool.py")
-    agent.add_tool("./tools/VisualQestionAnswer.py")
+    agent.add_tool("./tools/ComfyUITool.py", "comfy_ui_tool")
+    agent.add_tool("./tools/VisualQestionAnswer.py", "visual_qa_tool")
     
     try:
         # Create UI
