@@ -13,6 +13,10 @@ The server provides tools for:
 - Auto-creating files if they don't exist
 - Listing directory contents
 - Removing lines from files
+- String replacement with uniqueness validation
+- Line insertion
+- Undo previous edits
+- File backup
 
 Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
 Date: 2025-08-11
@@ -30,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import the file_io module (instead of individual functions)
 import src.file_io as file_io
+from src.file_io import FileIOError
 
 # Initialize MCP server
 mcp = FastMCP("codegen2_tool")
@@ -48,10 +53,12 @@ async def read_file(file_path: str, is_return_line_numbers: bool = True):
         str: The content of the file as a string, optionally with line numbers formatted as "1|line content"
         
     Raises:
-        FileNotFoundError: If the specified file does not exist
-        PermissionError: If permission is denied to read the file
+        FileIOError: If the file can't be read (doesn't exist, permission denied, etc.)
     """
-    return await file_io.read_file(file_path, is_return_line_numbers)
+    try:
+        return await file_io.read_file(file_path, is_return_line_numbers)
+    except FileIOError as e:
+        raise e
 
 @mcp.tool()
 async def read_file_range(file_path: str, start_line: int = 1, end_line: Optional[int] = None):
@@ -72,22 +79,24 @@ async def read_file_range(file_path: str, start_line: int = 1, end_line: Optiona
             - total_lines (int): Total number of lines in the file
         
     Raises:
-        FileNotFoundError: If the specified file does not exist
-        PermissionError: If permission is denied to read the file
+        FileIOError: If the file can't be read (doesn't exist, permission denied, etc.)
     """
-    content, actual_start, actual_end = await file_io.read_file_with_line_range(file_path, start_line, end_line)
-    
-    # Get total lines in file by reading the file and counting lines
-    file_path = file_io.expand_path(file_path)
-    with open(file_path, "r") as file:
-        total_lines = sum(1 for _ in file)
-    
-    return {
-        'content': content,
-        'start_line': actual_start,
-        'end_line': actual_end,
-        'total_lines': total_lines
-    }
+    try:
+        content, actual_start, actual_end = await file_io.read_file_with_line_range(file_path, start_line, end_line)
+        
+        # Get total lines in file
+        path = file_io.expand_path(file_path)
+        with open(path, "r", encoding="utf-8") as file:
+            total_lines = sum(1 for _ in file)
+        
+        return {
+            'content': content,
+            'start_line': actual_start,
+            'end_line': actual_end,
+            'total_lines': total_lines
+        }
+    except FileIOError as e:
+        raise e
 
 @mcp.tool()
 async def list_directory(directory_path: str):
@@ -107,11 +116,12 @@ async def list_directory(directory_path: str):
             - type (str): Type of the item ('file' or 'directory')
             
     Raises:
-        FileNotFoundError: If the specified directory does not exist
-        NotADirectoryError: If the specified path is not a directory
-        PermissionError: If permission is denied to read the directory
+        FileIOError: If the directory can't be accessed (doesn't exist, not a directory, permission denied)
     """
-    return await file_io.list_directory(directory_path)
+    try:
+        return await file_io.list_directory(directory_path)
+    except FileIOError as e:
+        raise e
 
 @mcp.tool()
 async def edit_file(file_path: str, content: str, start_line: int = 1, end_line: int = -1):
@@ -133,7 +143,7 @@ async def edit_file(file_path: str, content: str, start_line: int = 1, end_line:
             - created (bool): True if the file was created, False if it existed
         
     Raises:
-        PermissionError: If permission is denied to write to the file
+        FileIOError: If the file can't be edited (permission denied, path invalid, etc.)
         
     Notes:
         - If the file does not exist, it will be created automatically
@@ -152,18 +162,21 @@ async def edit_file(file_path: str, content: str, start_line: int = 1, end_line:
         # Append to file
         edit_file("/path/to/file.txt", "New content", -1, -1)
     """
-    # Check if the file exists before editing
-    file_path = file_io.expand_path(file_path)
-    file_existed = os.path.exists(file_path)
-    
-    # Perform the edit
-    success = await file_io.edit_file(file_path, content, start_line, end_line)
-    
-    return {
-        'success': success,
-        'file_path': file_path,
-        'created': not file_existed
-    } 
+    try:
+        # Check if the file exists before editing
+        path = file_io.expand_path(file_path)
+        file_existed = path.exists()
+        
+        # Perform the edit
+        success = await file_io.edit_file(file_path, content, start_line, end_line)
+        
+        return {
+            'success': success,
+            'file_path': str(path),
+            'created': not file_existed
+        }
+    except FileIOError as e:
+        raise e
 
 @mcp.tool()
 async def remove_file_lines(file_path: str, start_line: int, end_line: int = -1):
@@ -183,8 +196,7 @@ async def remove_file_lines(file_path: str, start_line: int, end_line: int = -1)
             - removed_lines (int): Number of lines removed
         
     Raises:
-        FileNotFoundError: If the file doesn't exist
-        PermissionError: If permission is denied to write to the file
+        FileIOError: If the file can't be edited (doesn't exist, permission denied, etc.)
         
     Notes:
         - If end_line is -1, it means removing from start_line to the end of the file
@@ -198,33 +210,201 @@ async def remove_file_lines(file_path: str, start_line: int, end_line: int = -1)
         # Remove from line 10 to the end of the file
         remove_file_lines("/path/to/file.txt", 10)
     """
-    # Expand path and check if file exists
-    file_path = file_io.expand_path(file_path)
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
+    try:
+        # Expand path and check if file exists
+        path = file_io.expand_path(file_path)
+        
+        # Get number of lines in the file
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as file:
+                total_lines = sum(1 for _ in file)
+            
+            # Calculate effective line range
+            effective_start = max(1, min(start_line, total_lines))
+            effective_end = total_lines if end_line == -1 else min(end_line, total_lines)
+            
+            # Calculate number of lines to be removed
+            if effective_start <= effective_end:
+                removed_lines = effective_end - effective_start + 1
+            else:
+                removed_lines = 0
+        else:
+            raise FileIOError(f"File not found: {path}")
+        
+        # Perform the removal
+        success = await file_io.remove_lines(file_path, start_line, end_line)
+        
+        return {
+            'success': success,
+            'file_path': str(path),
+            'removed_lines': removed_lines
+        }
+    except FileIOError as e:
+        raise e
+
+@mcp.tool()
+async def str_replace(file_path: str, old_str: str, new_str: str, require_unique: bool = True):
+    """
+    Replace a string in a file, with option to require uniqueness.
     
-    # Get number of lines in the file
-    with open(file_path, "r") as file:
-        total_lines = sum(1 for _ in file)
+    Parameters:
+        file_path (str): The absolute or relative path to the file to edit
+        old_str (str): String to replace
+        new_str (str): Replacement string
+        require_unique (bool, optional): Whether to require the old string appears exactly once.
+                                      Default is True.
+        
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): True if the replacement was successful
+            - file_path (str): The path of the edited file
+            - lines_affected (List[int]): Line numbers where replacements were made (1-indexed)
+            - count (int): Number of replacements made
+        
+    Raises:
+        FileIOError: If the file can't be edited or uniqueness requirement is violated
+        
+    Notes:
+        - If require_unique is True and the string appears multiple times, an error is raised
+        - If the string doesn't appear in the file, success will be False and count will be 0
+        
+    Examples:
+        # Replace a unique string
+        str_replace("/path/to/file.txt", "old text", "new text")
+        
+        # Replace all occurrences of a string
+        str_replace("/path/to/file.txt", "old text", "new text", require_unique=False)
+    """
+    try:
+        path = file_io.expand_path(file_path)
+        success, affected_lines = await file_io.str_replace(file_path, old_str, new_str, require_unique)
+        
+        return {
+            'success': success,
+            'file_path': str(path),
+            'lines_affected': affected_lines,
+            'count': len(affected_lines)
+        }
+    except FileIOError as e:
+        raise e
+
+@mcp.tool()
+async def insert_lines(file_path: str, insert_line: int, new_text: str):
+    """
+    Insert text at a specific line in a file.
     
-    # Calculate effective line range
-    effective_start = max(1, min(start_line, total_lines))
-    effective_end = total_lines if end_line == -1 else min(end_line, total_lines)
+    Parameters:
+        file_path (str): The absolute or relative path to the file to edit
+        insert_line (int): Line number to insert at (1-indexed).
+                         Use 0 to insert at the beginning of the file.
+        new_text (str): Text to insert
+        
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): True if the insertion was successful
+            - file_path (str): The path of the edited file
+            - insert_position (int): Position where the text was inserted
+        
+    Raises:
+        FileIOError: If the file can't be edited or the line number is invalid
+        
+    Notes:
+        - If insert_line is 0, the text is inserted at the beginning of the file
+        - If insert_line is greater than the file's line count, an error is raised
+        
+    Examples:
+        # Insert at the beginning of the file
+        insert_lines("/path/to/file.txt", 0, "New content at the beginning")
+        
+        # Insert after line 5
+        insert_lines("/path/to/file.txt", 5, "New content after line 5")
+    """
+    try:
+        path = file_io.expand_path(file_path)
+        success = await file_io.insert_lines(file_path, insert_line, new_text)
+        
+        return {
+            'success': success,
+            'file_path': str(path),
+            'insert_position': insert_line
+        }
+    except FileIOError as e:
+        raise e
+
+@mcp.tool()
+async def undo_edit(file_path: str):
+    """
+    Undo the last edit to a file.
     
-    # Calculate number of lines to be removed
-    if effective_start <= effective_end:
-        removed_lines = effective_end - effective_start + 1
-    else:
-        removed_lines = 0
+    Parameters:
+        file_path (str): The absolute or relative path to the file
+        
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): True if the undo was successful
+            - file_path (str): The path of the file
+            - message (str): Description of the action performed
+        
+    Raises:
+        FileIOError: If there's no edit history for the file or the file can't be accessed
+        
+    Notes:
+        - This tool can undo the most recent edit operation performed on the file
+        - Each file maintains its own history of recent changes
+        - If no edit history exists for the file, an error is raised
+        
+    Examples:
+        # Undo the last edit to a file
+        undo_edit("/path/to/file.txt")
+    """
+    try:
+        path = file_io.expand_path(file_path)
+        success = await file_io.undo_edit(file_path)
+        
+        return {
+            'success': success,
+            'file_path': str(path),
+            'message': f"Last edit to {path.name} was successfully undone"
+        }
+    except FileIOError as e:
+        raise e
+
+@mcp.tool()
+async def make_backup(file_path: str):
+    """
+    Create a backup of a file.
     
-    # Perform the removal
-    success = await file_io.remove_lines(file_path, start_line, end_line)
-    
-    return {
-        'success': success,
-        'file_path': file_path,
-        'removed_lines': removed_lines
-    }
+    Parameters:
+        file_path (str): The absolute or relative path to the file to back up
+        
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): True if the backup was successful
+            - file_path (str): The path of the original file
+            - backup_path (str): The path of the backup file
+        
+    Raises:
+        FileIOError: If the file can't be backed up
+        
+    Notes:
+        - The backup file will be created in the same directory as the original file
+        - The backup filename will be the original filename with a timestamp and .bak extension
+        
+    Examples:
+        # Create a backup of a file
+        make_backup("/path/to/file.txt")  # Creates e.g. /path/to/file.txt.20250811153045.bak
+    """
+    try:
+        path = file_io.expand_path(file_path)
+        backup_path = await file_io.make_backup(file_path)
+        
+        return {
+            'success': True,
+            'file_path': str(path),
+            'backup_path': backup_path
+        }
+    except FileIOError as e:
+        raise e
 
 if __name__ == "__main__":
     mcp.run(transport='stdio') 
