@@ -35,80 +35,211 @@ from openhands_aci.utils.shell import run_shell_cmd
 mcp = FastMCP("openhands_aci_tool")
 
 @mcp.tool()
-async def edit_code(command: str, path: str, file_text: Optional[str] = None, 
-                   view_range: Optional[List[int]] = None, old_str: Optional[str] = None, 
-                   new_str: Optional[str] = None, insert_line: Optional[int] = None,
-                   enable_linting: bool = False):
+async def view_file(path: str, view_range: Optional[List[int]] = None):
     """
-    Edit code using one of the supported commands: view, create, str_replace, insert, undo_edit.
+    View the content of a file.
+    
+    Retrieves and returns the content of the specified file. Can return a specific range of lines if requested.
     
     Parameters:
-        command (str): The editor command to execute. Must be one of:
-            - 'view': View file content (requires path)
-            - 'create': Create a new file (requires path, file_text)
-            - 'str_replace': Replace text in a file (requires path, old_str, new_str)
-            - 'insert': Insert text at a specific line (requires path, insert_line, new_str)
-            - 'undo_edit': Revert last edit (requires path)
-            
-        path (str): Absolute path to the file to edit
-        
-        file_text (str, optional): Content for the file when creating or for context when editing
-        
-        view_range (List[int], optional): Range of lines to view as [start_line, end_line].
-            Line numbers start at 1. Only used with 'view' command.
-            
-        old_str (str, optional): String to replace when using 'str_replace' command
-        
-        new_str (str, optional): New string to use when replacing ('str_replace') or inserting ('insert')
-        
-        insert_line (int, optional): Line number for insertion with 'insert' command.
-            Line numbers start at 0, where:
-            - 0: Insert before the first line
-            - n: Insert after line n (before line n+1)
-            
-        enable_linting (bool, optional): Whether to run linting on changes (default: False)
-        
+        path (str): Absolute path to the file to view
+        view_range (List[int], optional): Lines to view: [start, end] (1-based indexing)
+    
     Returns:
-        str: A string containing the result of the operation in the following format:
-             <oh_aci_output_{marker_id}>
-             {JSON object with operation results}
-             </oh_aci_output_{marker_id}>
-             
-             The JSON object typically includes:
-             - path (str): Path to the edited file
-             - new_content (str): New content of the file after edits (not in 'view' command)
-             - old_content (str): Previous content before edits (returned as 'old_content')
-             - prev_exist (bool): Whether the file existed before the operation
-             - output (str): Human-readable message describing the operation
-             - error (str, optional): Error message if operation failed
-             - formatted_output_and_error (str): Formatted display output
-            
+        str: Output block in format <oh_aci_output_{id}>...<\oh_aci_output_{id}>
+            Includes JSON with keys:
+            - 'path': The file path
+            - 'content': The file content or specified range
+            - 'error': Error message if operation failed
+    
     Raises:
-        ValueError: If the command is invalid or required parameters are missing
+        ValueError: If the path is invalid or file cannot be read
         
     Notes:
-        - For 'str_replace', the old_str must appear exactly once in the file
-        - For 'insert', line numbering starts at 0 (insert before first line) 
-          and can go up to the number of lines in the file (append to end)
-        - For binary files or files larger than the configured size limit, operations will fail
+        - For binary or oversized files, the operation will fail
+        - If view_range is specified, only the specified lines will be returned
+        - Line numbers are 1-based (first line is line 1)
+    
+    Typical Use Cases:
+        - Inspect file content: view the entire file
+        - Examine specific text section: view a range of lines in any file
     """
-    # Convert command string to Command type
-    if command not in ["view", "create", "str_replace", "insert", "undo_edit"]:
-        raise ValueError(f"Invalid command: {command}. Must be one of: view, create, str_replace, insert, undo_edit")
-    
-    cmd = command  # Type checking will happen inside file_editor
-    
     result = file_editor(
-        command=cmd,
+        command="view",
+        path=path,
+        view_range=view_range,
+    )
+    return result
+
+@mcp.tool()
+async def create_file(path: str, file_text: str, enable_linting: bool = False):
+    """
+    Create a new file with the specified content.
+    
+    Creates a new file at the specified path with the provided content. The operation will fail if the file already exists.
+    
+    Parameters:
+        path (str): Absolute path where the new file should be created
+        file_text (str): Content to write to the new file
+        enable_linting (bool, optional): Run linting on the content after creation (default: False)
+    
+    Returns:
+        str: Output block in format <oh_aci_output_{id}>...<\oh_aci_output_{id}>
+            Includes JSON with keys:
+            - 'path': The file path
+            - 'new_content': The content written to the file
+            - 'error': Error message if operation failed
+            - 'prev_exist': Always false for successful creation
+    
+    Raises:
+        ValueError: If the file already exists or path is invalid
+        
+    Notes:
+        - DONOT use this tool to overwrite an existing file.
+        - Use a delete operation first if overwriting an existing file is intended
+    
+    Typical Use Cases:
+        - Create new script: create a new Python file with initial code
+        - Generate configuration file: create JSON or YAML configuration
+    """
+    result = file_editor(
+        command="create",
         path=path,
         file_text=file_text,
-        view_range=view_range,
-        old_str=old_str,
-        new_str=new_str,
-        insert_line=insert_line,
         enable_linting=enable_linting,
     )
     return result
+
+@mcp.tool()
+async def str_replace_in_file(path: str, old_str: str, new_str: str, enable_linting: bool = False):
+    """
+    Replace an exact text match in a file.
+    
+    Searches for the exact text match in the file and replaces it with the new string.
+    The operation fails if the match is not found exactly once in the file.
+    
+    Parameters:
+        path (str): Absolute path to the file to modify
+        old_str (str): String to search for and replace (must appear exactly once)
+        new_str (str): String to insert in place of old_str
+        enable_linting (bool, optional): Run linting after edit (default: False)
+    
+    Returns:
+        str: Output block in format <oh_aci_output_{id}>...<\oh_aci_output_{id}>
+            Includes JSON with keys:
+            - 'path': The file path
+            - 'old_content': The original file content
+            - 'new_content': The modified file content
+            - 'error': Error message if operation failed
+    
+    Raises:
+        ValueError: If old_str is not found exactly once in the file
+        
+    Notes:
+        - The match must be exact and must appear exactly once
+        - If multiple matches are found, the operation will fail
+        - If no matches are found, the operation will fail
+        - For binary or oversized files, the operation will fail
+    
+    Typical Use Cases:
+        - Update function implementation: replace entire function body
+        - Fix typo: replace misspelled variable name
+        - Change configuration value: replace exact key-value pair
+    """
+    result = file_editor(
+        command="str_replace",
+        path=path,
+        old_str=old_str,
+        new_str=new_str,
+        enable_linting=enable_linting,
+    )
+    return result
+
+@mcp.tool()
+async def insert_in_file(path: str, insert_line: int, new_str: str, enable_linting: bool = False):
+    """
+    Insert text at a specific line in a file.
+    
+    Inserts the provided text at the specified line number in the file.
+    Line 1 represents insertion before the first line of the file.
+    
+    Parameters:
+        path (str): Absolute path to the file to modify
+        insert_line (int): Line number for insertion (STARTING FROM 1, 1 = before first line)
+        new_str (str): Text to insert at the specified line
+        enable_linting (bool, optional): Run linting after edit (default: False)
+    
+    Returns:
+        str: Output block in format <oh_aci_output_{id}>...<\oh_aci_output_{id}>
+            Includes JSON with keys:
+            - 'path': The file path
+            - 'old_content': The original file content
+            - 'new_content': The modified file content
+            - 'error': Error message if operation failed
+    
+    Raises:
+        ValueError: If insert_line is less than 1 or exceeds file length
+        
+    Notes:
+        - Line numbering starts at 1 (first line is line 1)
+        - Use insert_line=1 to insert at the beginning of the file
+        - Use a line number beyond the end of the file to append to the file
+        - For binary or oversized files, the operation will fail
+    
+    Typical Use Cases:
+        - Add import statement: insert at the top of the file (line 1)
+        - Add new method: insert at specific line in a class
+        - Add comment: insert comment above code at specific line
+    """
+    # Adjust line number from 1-based (API) to 0-based (internal implementation)
+    adjusted_line = insert_line - 1
+    
+    result = file_editor(
+        command="insert",
+        path=path,
+        insert_line=adjusted_line,
+        new_str=new_str,
+        enable_linting=enable_linting,
+    )
+    return result
+
+# @mcp.tool()
+# async def undo_edit(path: str):
+#     """
+#     Revert the last edit made to a file.
+    
+#     Undoes the most recent modification made to the specified file,
+#     restoring it to its previous state. Only affects the last operation.
+    
+#     Parameters:
+#         path (str): Absolute path to the file whose last edit should be undone
+    
+#     Returns:
+#         str: Output block in format <oh_aci_output_{id}>...<\oh_aci_output_{id}>
+#             Includes JSON with keys:
+#             - 'path': The file path
+#             - 'old_content': The content after the undo (previously the content before the last edit)
+#             - 'new_content': The content before the undo (previously the content after the last edit)
+#             - 'error': Error message if operation failed
+    
+#     Raises:
+#         ValueError: If there is no edit history for the specified file
+        
+#     Notes:
+#         - Only the most recent edit can be undone
+#         - If no edit history exists for the file, the operation will fail
+#         - File creation cannot be undone using this function
+#         - Multiple consecutive undos are not supported
+    
+#     Typical Use Cases:
+#         - Revert accidental change: undo after making an incorrect modification
+#         - Cancel experiment: undo after testing a code change that didn't work
+#     """
+#     result = file_editor(
+#         command="undo_edit",
+#         path=path,
+#     )
+#     return result
 
 @mcp.tool()
 async def run_linter(code: str, language: str):
@@ -195,80 +326,80 @@ async def execute_shell(cmd: str, timeout: float = 60.0):
             "success": False
         }
 
-@mcp.tool()
-async def cache_file(path: str, content: Optional[str] = None, directory: str = "/tmp/filecache"):
-    """
-    Cache a file for faster access or store content without writing to disk.
+# @mcp.tool()
+# async def cache_file(path: str, content: Optional[str] = None, directory: str = "/tmp/filecache"):
+#     """
+#     Cache a file for faster access or store content without writing to disk.
     
-    Parameters:
-        path (str): Path to identify the file in the cache (used as the cache key)
-        content (str, optional): Content to store. If None, tries to read from the path
-        directory (str, optional): Directory to store the cache. Defaults to "/tmp/filecache"
+#     Parameters:
+#         path (str): Path to identify the file in the cache (used as the cache key)
+#         content (str, optional): Content to store. If None, tries to read from the path
+#         directory (str, optional): Directory to store the cache. Defaults to "/tmp/filecache"
         
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - path (str): Path used as the cache key
-            - success (bool): Whether the caching was successful
-            - error (str, optional): Error message if caching failed
+#     Returns:
+#         Dict[str, Any]: A dictionary containing:
+#             - path (str): Path used as the cache key
+#             - success (bool): Whether the caching was successful
+#             - error (str, optional): Error message if caching failed
             
-    Raises:
-        FileNotFoundError: If content is None and the file doesn't exist
-    """
-    file_cache = FileCache(directory=directory)
+#     Raises:
+#         FileNotFoundError: If content is None and the file doesn't exist
+#     """
+#     file_cache = FileCache(directory=directory)
     
-    try:
-        if content is None:
-            # Read and cache the content from the file
-            with open(path, 'r') as f:
-                content = f.read()
+#     try:
+#         if content is None:
+#             # Read and cache the content from the file
+#             with open(path, 'r') as f:
+#                 content = f.read()
         
-        file_cache.set(path, content)
+#         file_cache.set(path, content)
         
-        return {
-            "path": path,
-            "success": True
-        }
-    except Exception as e:
-        return {
-            "path": path,
-            "success": False,
-            "error": str(e)
-        }
+#         return {
+#             "path": path,
+#             "success": True
+#         }
+#     except Exception as e:
+#         return {
+#             "path": path,
+#             "success": False,
+#             "error": str(e)
+#         }
 
-@mcp.tool()
-async def get_cached_file(path: str, directory: str = "/tmp/filecache"):
-    """
-    Retrieve a file from the cache by its path key.
+# @mcp.tool()
+# async def get_cached_file(path: str, directory: str = "/tmp/filecache"):
+#     """
+#     Retrieve a file from the cache by its path key.
     
-    Parameters:
-        path (str): Path used as the cache key when the file was cached
-        directory (str, optional): Directory where the cache is stored. Defaults to "/tmp/filecache"
+#     Parameters:
+#         path (str): Path used as the cache key when the file was cached
+#         directory (str, optional): Directory where the cache is stored. Defaults to "/tmp/filecache"
         
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - path (str): Path used as the cache key
-            - content (str): The cached content, if found
-            - success (bool): Whether the retrieval was successful
-            - error (str, optional): Error message if retrieval failed
+#     Returns:
+#         Dict[str, Any]: A dictionary containing:
+#             - path (str): Path used as the cache key
+#             - content (str): The cached content, if found
+#             - success (bool): Whether the retrieval was successful
+#             - error (str, optional): Error message if retrieval failed
             
-    Raises:
-        KeyError: If the path is not found in the cache
-    """
-    file_cache = FileCache(directory=directory)
+#     Raises:
+#         KeyError: If the path is not found in the cache
+#     """
+#     file_cache = FileCache(directory=directory)
     
-    try:
-        content = file_cache.get(path)
-        return {
-            "path": path,
-            "content": content,
-            "success": True
-        }
-    except KeyError:
-        return {
-            "path": path,
-            "success": False,
-            "error": f"Path '{path}' not found in cache"
-        }
+#     try:
+#         content = file_cache.get(path)
+#         return {
+#             "path": path,
+#             "content": content,
+#             "success": True
+#         }
+#     except KeyError:
+#         return {
+#             "path": path,
+#             "success": False,
+#             "error": f"Path '{path}' not found in cache"
+#         }
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')

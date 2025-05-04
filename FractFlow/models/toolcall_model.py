@@ -1,6 +1,7 @@
 import json
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
+from json_repair import repair_json
 
 from openai import OpenAI
 
@@ -165,6 +166,12 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             return None
             
         content = response.choices[0].message.content.strip()
+        
+        # Apply json_repair directly
+        content = repair_json(content)
+        if not content:
+            self.logger.error("JSON repair returned empty string, JSON was too broken")
+            return None
         
         # Parse the JSON response
         try:
