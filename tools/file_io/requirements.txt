@@ -1,0 +1,6 @@
+# Requirements for the file_io tool
+pytest==7.3.1
+pytest-asyncio==0.21.0
+mcp>=0.1.0
+pathlib>=1.0.1
+aiofiles>=0.8.0 

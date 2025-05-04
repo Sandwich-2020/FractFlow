@@ -13,7 +13,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.insert(0, project_root)  # <-- 添加这3行
 from dotenv import load_dotenv
+from FractFlow.infra.logging_utils import setup_logging
 
+setup_logging(20)
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
 import mcp
@@ -23,7 +25,7 @@ mcp = FastMCP("fractal weather")
 @mcp.tool()
 async def weather_agent(user_input: str) -> str:
     """
-    This function takes user input and returns a weather forecast.
+    This function has an built-in LLM, it can takes user input and returns a weather forecast.
     Args:
         user_input: The user's input
     Returns:
@@ -33,7 +35,7 @@ async def weather_agent(user_input: str) -> str:
     load_dotenv()
     print('working on weather agent')
     # 3. Create a new agent
-    agent = Agent()  # No need to specify provider here if it's in config
+    agent = Agent('Inner Weather Agent')  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
@@ -43,14 +45,9 @@ async def weather_agent(user_input: str) -> str:
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
-    # Add tools to the agent
-    if os.path.exists("./tools/filesystem/operations.py"):
-        agent.add_tool("./tools/filesystem/operations.py")
-        print("Added filesystem tool")
     
-    if os.path.exists("./tools/weather/forecast.py"):
-        agent.add_tool("./tools/weather/forecast.py")
-        print("Added weather tool")
+    agent.add_tool("./tools/forecast.py", 'weather tool')
+    print("Added weather tool")
     
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")

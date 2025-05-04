@@ -20,12 +20,7 @@ from .core.orchestrator import Orchestrator
 from .core.query_processor import QueryProcessor
 from .core.tool_executor import ToolExecutor
 from .infra.config import ConfigManager
-
-import logging
-from FractFlow.infra.logging_utils import setup_logging
-
-# Set up colored logs
-setup_logging(level=logging.INFO, use_colors=True)
+from .infra.logging_utils import get_logger
 
 class Agent:
     """
@@ -35,12 +30,23 @@ class Agent:
     the FractalFlow agent system.
     """
     
-    def __init__(self):
+    def __init__(self, name: str = 'agent', config: Optional[Dict[str, Any]] = None):
         """
         Initialize the FractalFlow agent.
+        
+        Args:
+            name: Name for the agent
+            config: Optional initial configuration dictionary
         """
         # Initialize configuration with defaults only
-        self.config_manager = ConfigManager()
+        self.config = ConfigManager(config)
+        self.name = name
+        
+        # Push agent name to call path
+        self.config.push_to_call_path(self.name)
+        
+        # Initialize logger with call path
+        self.logger = get_logger(self.config.get_call_path())
         
         # Initialize tool configs
         self.tool_configs = {}
@@ -50,7 +56,9 @@ class Agent:
         self._query_processor = None
         self._tool_executor = None
         self._is_initialized = False
-    
+        
+        self.logger.info(f"Agent '{self.name}' initialized")
+        
     def get_config(self) -> Dict[str, Any]:
         """
         Get the current configuration.
@@ -59,7 +67,7 @@ class Agent:
             The current configuration dictionary
         """
         # Simply delegate to the config manager
-        return self.config_manager.get_config()
+        return self.config.get_config()
     
     def set_config(self, config: Dict[str, Any]) -> None:
         """
@@ -69,9 +77,9 @@ class Agent:
             config: The configuration dictionary to set
         """
         # Simply delegate to the config manager
-        self.config_manager.set_config(config)
+        self.config.set_config(config)
     
-    def add_tool(self, tool_path: str, tool_name: Optional[str] = None) -> None:
+    def add_tool(self, tool_path: str, tool_name: str) -> None:
         """
         Add a tool to the agent.
         
@@ -82,35 +90,46 @@ class Agent:
         if not os.path.exists(tool_path):
             raise ValueError(f"Tool script not found: {tool_path}")
         
-        if tool_name is None:
-            tool_name = os.path.basename(os.path.dirname(tool_path))
-        
         self.tool_configs[tool_name] = tool_path
     
     def _ensure_initialized(self) -> None:
         """Initialize components if they haven't been initialized yet."""
         if not self._is_initialized:
             # Get provider from config
-            provider = self.config_manager.get('agent.provider')
+            provider = self.config.get('agent.provider')
             
+            self.logger.debug("Initializing agent components")
+            
+            # Create components with the config_manager
             self._orchestrator = Orchestrator(
                 tool_configs=self.tool_configs,
-                provider=provider
+                provider=provider,
+                config=self.config
             )
-            self._tool_executor = ToolExecutor()
-            self._query_processor = QueryProcessor(self._orchestrator, self._tool_executor)
+            self._tool_executor = ToolExecutor(config=self.config)
+            self._query_processor = QueryProcessor(
+                self._orchestrator, 
+                self._tool_executor,
+                config=self.config
+            )
             self._is_initialized = True
+            
+            self.logger.info("Agent components initialized")
     
     async def initialize(self) -> None:
         """Initialize and start the agent system."""
         self._ensure_initialized()
+        self.logger.info("Starting orchestrator")
         await self._orchestrator.start()
+        self.logger.info("Agent system started")
     
     async def shutdown(self) -> None:
         """Shut down the agent system."""
         if self._orchestrator:
+            self.logger.info("Shutting down agent system")
             await self._orchestrator.shutdown()
             self._is_initialized = False
+            self.logger.info("Agent system shut down")
     
     async def process_query(self, query: str) -> str:
         """
@@ -127,8 +146,23 @@ class Agent:
         
         # Start the orchestrator if not already started
         if not hasattr(self._orchestrator, "launcher") or self._orchestrator.launcher is None:
+            self.logger.info("Starting orchestrator")
             await self._orchestrator.start()
+        
+        # Log the incoming query
+        self.logger.info(f"Processing query", {"query": query})
         
         # Process the query
         result = await self._query_processor.process_query(query)
+        
         return result 
+        
+    def get_history(self) -> List[Dict[str, Any]]:
+        """
+        Get the conversation history from the current session.
+        
+        Returns:
+            The current conversation history as a list of message dictionaries
+        """
+        self._ensure_initialized()
+        return self._query_processor.get_history() 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-run_fractal_example.py
+run_simple_example.py
 Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
 Date: 2025-04-08
-Description: Example script demonstrating how to use the FractalFlow Agent interface with fractal weather tool.
+Description: Example script demonstrating how to use the FractalFlow Agent interface with basic setup and usage.
 License: MIT License
 """
 
@@ -16,31 +16,47 @@ as described in the interface requirements.
 
 import asyncio
 import os
-from dotenv import load_dotenv
+import sys
+import logging
+
+import os.path as osp
+# Add the project root directory to the Python path
+project_root = osp.abspath(osp.join(osp.dirname(__file__), '..'))
+sys.path.append(project_root)
 
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
 from FractFlow.infra.config import ConfigManager
+from FractFlow.infra.logging_utils import setup_logging, get_logger
+
+# 设置日志
+setup_logging(
+    level=logging.DEBUG,  # 根logger设置为INFO
+    namespace_levels={
+        # "simple agent": logging.DEBUG,  # FractFlow项目输出DEBUG日志
+        "httpx": logging.WARNING,    # 降低httpx的日志级别
+    }
+)
+
 
 async def main():
-    # 1. Load environment variables 
-    load_dotenv()
     
     # 3. Create a new agent
-    agent = Agent()  # No need to specify provider here if it's in config
+    agent = Agent('simple agent')  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
-    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
+    # config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
+    config['deepseek']['model'] = 'deepseek-chat'
+    config['qwen']['base_url'] = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     # You can modify configuration values directly
-    config['agent']['max_iterations'] = 100  # Properly set as nested value
+    config['agent']['max_iterations'] = 5  # Properly set as nested value
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
-    
-    if os.path.exists("./tools/fractal_weather_tool.py"):
-        agent.add_tool("./tools/fractal_weather_tool.py")
-        print("Added fractal_weather tool")
-    
+    # Add tools to the agent
+    # agent.add_tool("./tools/ComfyUITool.py")
+    # agent.add_tool("./tools/VisualQestionAnswer.py")
+    agent.add_tool("./tools/forecast.py", "forecast_tool")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()

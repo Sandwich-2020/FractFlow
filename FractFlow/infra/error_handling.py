@@ -5,10 +5,9 @@ Provides custom exceptions and error handling functionality to ensure
 consistent error management across the agent system.
 """
 
-import logging
 import traceback
 from typing import Optional, Dict, Any
-from .logging_utils import get_logger, COLORS
+from .logging_utils import get_logger
 
 # 使用新的日志工具替代基础配置
 logger = get_logger(__name__)
@@ -57,9 +56,9 @@ def handle_error(error: Exception, context: Optional[Dict[str, Any]] = None) -> 
     """
     # Error messages should remain highlighted to draw attention
     if context:
-        logger.error(f"{COLORS['BOLD']}Error occurred{COLORS['RESET']}", {"Error message": str(error), "Context": context})
+        logger.error("Error occurred", {"Error message": str(error), "Context": context})
     else:
-        logger.error(f"{COLORS['BOLD']}Error occurred{COLORS['RESET']}", {"Error message": str(error)})
+        logger.error("Error occurred", {"Error message": str(error)})
     
     # Include stack trace for debugging
     logger.debug(traceback.format_exc())

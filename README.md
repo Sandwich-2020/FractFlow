@@ -32,6 +32,28 @@ Then you will get a dist folder, which can be installed with the following comma
 uv pip install dist/FractFlow-0.1.0-py3-none-any.whl
 ```
 
+### Method 3: Development Mode Installation
+
+For development purposes, you can install the package in development mode. This allows you to modify the code without reinstalling the package:
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+pip install -e .
+```
+
+After installation, you can run the example scripts from the `scripts` directory:
+
+```bash
+python scripts/run_simple_example.py
+python scripts/run_code_gen.py
+python scripts/run_fractal_example.py
+python scripts/run_simple_example_ui.py
+```
+
+Note: Make sure you are in the project root directory when running these commands.
+
 ## Quick Start
 
 First, you need to obtain API keys for language models. Currently, DeepSeek and Qwen models are supported. DeepSeek models are preferred, as Qwen has not been fully tested yet.
@@ -70,7 +92,7 @@ async def main():
     agent.set_config(config)
     
     # Add tools
-    agent.add_tool("./tools/weather/forecast.py")
+    agent.add_tool("./tools/weather/forecast.py", "forecast_tool")
     
     # Initialize Agent
     await agent.initialize()
@@ -195,7 +217,7 @@ async def main():
     
     # Add tools
     if os.path.exists("./tools/weather/forecast.py"):
-        agent.add_tool("./tools/weather/forecast.py")
+        agent.add_tool("./tools/weather/forecast.py", "forecast_tool")
         print("Added weather tool")
     
     # Initialize Agent
@@ -269,7 +291,7 @@ async def weather_agent(user_input: str) -> str:
     
     # Add tools
     if os.path.exists("./tools/weather/forecast.py"):
-        agent.add_tool("./tools/weather/forecast.py")
+        agent.add_tool("./tools/weather/forecast.py", "forecast_tool")
         print("Added weather tool")
     
     # Initialize Agent
@@ -291,12 +313,21 @@ if __name__ == "__main__":
 
 This approach allows you to create a specialized Agent tool that can be called by other Agents, forming a fractal intelligence structure. Advanced Agents can delegate tasks to specialized Agents, and each specialized Agent can use its own set of tools.
 
-## Future Work
+----
 
-The ultimate goal of FractFlow is to build a fractal intelligence system, a dynamic flow of intelligence composed of Agents and tools, where each part is both an individual and can be nested to build higher-order intelligence structures.
+Supported models:
+- DeepSeek (reasoner and chat)
+- Qwen (qwen2.5-vl-72b-instruct, qwen-plus)
 
-Currently, FractFlow is still in the development stage, and I will continue to update it. For those involved in internal testing, you need to:
 
-1. Try adding tools to verify its functionality. The current version has not been fully tested, so problems are normal. Please actively provide feedback (direct communication via WeChat).
-2. Do not share with others before the project is open-source.
-3. This project will be submitted to ICLR 2026. If you wish to participate, please let me know promptly.
+----
+Updates
+
+## Version 0.2.0
+- Improved security of configuration system
+- Unified DeepSeek and Qwen model implementations
+- Enhanced tool calling capabilities
+  - Added support for parallel multi-tool execution
+  - Refactored toolCallingHelper as independent module
+  - Improved DeepSeek model reasoner with better tool calling
+- Updated the image_io tool

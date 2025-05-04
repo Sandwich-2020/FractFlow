@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+
 """
-run_simple_example.py
+run_fractal_example.py
 Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
 Date: 2025-04-08
-Description: Example script demonstrating how to use the FractalFlow Agent interface with basic setup and usage.
+Description: Example script demonstrating how to use the FractalFlow Agent interface with fractal weather tool.
 License: MIT License
 """
 
@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
 from FractFlow.infra.config import ConfigManager
+from FractFlow.infra.logging_utils import setup_logging
+
+setup_logging(20)
 
 async def main():
     # 1. Load environment variables 
@@ -30,17 +33,17 @@ async def main():
     agent = Agent()  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
-    config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
-    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['deepseek']['model'] = 'deepseek-chat'
-    config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
+    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
-    # Add tools to the agent
-    agent.add_tool("./tools/forecast.py")
+    
+    agent.add_tool("./tools/fractal_weather_tool.py", 'weather tool')
+    print("Added fractal_weather tool")
+    
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()

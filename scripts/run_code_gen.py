@@ -16,7 +16,28 @@ as described in the interface requirements.
 
 import asyncio
 import os
+import os.path as osp
 from dotenv import load_dotenv
+import sys
+import logging
+
+# Add the project root directory to the Python path
+project_root = osp.abspath(osp.join(osp.dirname(__file__), '..'))
+sys.path.append(project_root)
+
+from FractFlow.infra.logging_utils import setup_logging, get_logger
+setup_logging(20)
+# # 设置日志
+# setup_logging(
+#     level=logging.DEBUG,  # 根logger设置为INFO
+#     namespace_levels={
+#         "httpx": logging.WARNING,   
+#         "httpcore": logging.WARNING,
+#         "openai": logging.WARNING,
+#         "httpx": logging.WARNING,
+#     }
+# )
+
 
 # Import the FractalFlow Agent
 from FractFlow.agent import Agent
@@ -27,20 +48,19 @@ async def main():
     load_dotenv()
     
     # 3. Create a new agent
-    agent = Agent()  # No need to specify provider here if it's in config
+    agent = Agent('code_gen')  # No need to specify provider here if it's in config
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
-    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
+    config['agent']['custom_system_prompt'] = 'Given a request about coding, you should use the coordinator_agent to generate the code.'
+
     config['deepseek']['model'] = 'deepseek-chat'
-    config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 100  # Properly set as nested value
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
     # Add tools to the agent
-    # agent.add_tool("./tools/coding.py")
-    agent.add_tool("./tools/websearch.py")
+    agent.add_tool("./tools/codegen/coordinator_agent.py", "coordinator_agent")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()
