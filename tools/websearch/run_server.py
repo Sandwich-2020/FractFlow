@@ -39,8 +39,9 @@ async def create_agent():
     """Create and initialize the Agent"""
     load_dotenv()
     # Create a new agent
-    agent = Agent('web_search_browse_agent')  # No need to specify provider here if it's in config
+    agent = Agent()  # No need to specify provider here if it's in config
     config = agent.get_config()
+    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['agent']['provider'] = 'deepseek'
     config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复，当调用网页浏览工具无法得出具体或者确切的答案时，请调用网页浏览工具来浏览相关性最强的网页回答'
 
@@ -58,7 +59,7 @@ async def create_agent():
     agent.set_config(config)
     
     # Add tools to the agent
-    agent.add_tool("./src/server.py")
+    agent.add_tool("./src/server.py", "web_search")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()

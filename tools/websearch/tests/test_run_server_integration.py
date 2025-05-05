@@ -10,7 +10,7 @@ For integration tests, we use mocks to avoid actual network requests but still t
 the flow between components.
 
 Author: Xinli Xu (xxu068@connect.hkust-gz.edu.cn) - Envision Lab
-Date: 2025-04-28
+Date: 2025-05-03 (Updated)
 License: MIT License
 """
 
@@ -18,16 +18,21 @@ import os
 import sys
 import pytest
 import unittest.mock as mock
+from unittest.mock import AsyncMock
 import asyncio
 from pathlib import Path
 
 # Add the parent directory to the Python path so we can import modules from there
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import the run_server module
-import run_server
-from src.server import web_browse, search
-from src.core_logic import browse_webpage, web_search
+try:
+    # Import the run_server module
+    import run_server
+    from src.server import web_crawl, search_and_browse
+    from src.core_logic import web_search_and_browse, crawl
+except ImportError as e:
+    print(f"Import error: {e}")
+    raise
 
 # Mock Agent class for testing
 class MockAgent:
@@ -50,7 +55,7 @@ class MockAgent:
     def set_config(self, config):
         self.config = config
     
-    def add_tool(self, tool_path):
+    def add_tool(self, tool_path, tool_name=None, tool_config=None):
         self.tools.append(tool_path)
     
     async def initialize(self):
@@ -86,7 +91,8 @@ async def test_create_agent(mock_agent_class):
     assert agent.config['agent']['provider'] == 'deepseek'
     assert agent.config['deepseek']['model'] == 'deepseek-chat'
     assert agent.config['agent']['max_iterations'] == 5
-    assert "./tools/websearch/src/server.py" in agent.tools
+    assert len(agent.tools) > 0
+    assert "./src/server.py" in agent.tools
 
 
 @pytest.mark.asyncio
@@ -117,32 +123,45 @@ async def test_interactive_mode(mock_print, mock_input, mock_agent_class):
 
 
 @pytest.mark.asyncio
-@mock.patch('src.core_logic.browse_webpage')
-async def test_web_browse_integration(mock_browse_webpage):
-    """Test the integration between the server web_browse function and core logic."""
-    mock_browse_webpage.return_value = "Webpage content"
+@mock.patch('src.server.crawl')
+async def test_web_crawl_integration(mock_crawl):
+    """Test the integration between the server web_crawl function and core logic."""
+    # Setup the mock response
+    mock_crawl.return_value = {
+        "content": "Webpage content",
+        "url": "https://example.com",
+        "is_pdf": False
+    }
+    
     url = "https://example.com"
-    extract_type = "full_text"
+    max_length = 10000
     
-    result = await web_browse(url, extract_type)
+    result = await web_crawl(url, max_length)
     
-    mock_browse_webpage.assert_called_once_with(url, extract_type)
-    assert result == "Webpage content"
+    # Verify the call to crawl
+    mock_crawl.assert_called_once()
+    assert mock_crawl.call_args[0][0]["url"] == url
+    assert mock_crawl.call_args[0][0]["max_length"] == max_length
+    
+    # Verify the result
+    assert "Webpage content" in result
 
 
 @pytest.mark.asyncio
-@mock.patch('src.core_logic.web_search')
-async def test_search_integration(mock_web_search):
-    """Test the integration between the server search function and core logic."""
-    mock_web_search.return_value = "Search results"
+@mock.patch('src.server.web_search_and_browse')
+async def test_search_and_browse_integration(mock_web_search_and_browse):
+    """Test the integration between the server search_and_browse function and core logic."""
+    mock_web_search_and_browse.return_value = "Search and browse results"
     query = "test query"
-    search_engine = "duckduckgo"
+    search_engine = "google"
     num_results = 5
+    max_browse = 1
+    max_length = 10000
     
-    result = await search(query, search_engine, num_results)
+    result = await search_and_browse(query, search_engine, num_results, max_browse, max_length)
     
-    mock_web_search.assert_called_once_with(query, search_engine, num_results)
-    assert result == "Search results"
+    mock_web_search_and_browse.assert_called_once_with(query, search_engine, num_results, max_browse, max_length)
+    assert result == "Search and browse results"
 
 
 @pytest.mark.asyncio
