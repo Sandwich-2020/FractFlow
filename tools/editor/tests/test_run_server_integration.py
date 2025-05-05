@@ -298,6 +298,69 @@ def test_insert_line_query(temp_test_dir, setup_logging_directories):
     assert "#" in content and ("author" in content.lower() or "created" in content.lower())
 
 
+def test_remove_lines_query(temp_test_dir, setup_logging_directories):
+    """Test query for removing lines from a file"""
+    # Create a multiline test file for this specific test
+    remove_test_file = os.path.join(temp_test_dir, "remove_test_file.py")
+    with open(remove_test_file, "w") as f:
+        f.write("# Line 1 - Header comment\n# Line 2 - License info\n\ndef test_function():\n    print('This is a test')\n    # Debug code to remove\n    print('Debug output')\n    return True\n")
+    
+    # Log the file content before modification
+    if setup_logging_directories:
+        log_dir = setup_logging_directories.get("integration")
+        timestamp = time.strftime("%H%M%S")
+        with open(os.path.join(log_dir, f"test_remove_lines_query_{timestamp}_before.txt"), "w") as f:
+            f.write(f"=== File before modification: {remove_test_file} ===\n")
+            with open(remove_test_file, "r") as src:
+                f.write(src.read())
+    
+    # Run the query - remove the debug line
+    query = f"Remove the debug print line (line 7) from the file {remove_test_file}"
+    result = run_query(query, test_name="test_remove_lines_query", log_dirs=setup_logging_directories)
+    
+    # Log the file content after modification
+    if setup_logging_directories:
+        log_dir = setup_logging_directories.get("integration")
+        timestamp = time.strftime("%H%M%S")
+        with open(os.path.join(log_dir, f"test_remove_lines_query_{timestamp}_after.txt"), "w") as f:
+            f.write(f"=== File after modification: {remove_test_file} ===\n")
+            with open(remove_test_file, "r") as src:
+                f.write(src.read())
+    
+    # Verify the file was modified correctly
+    with open(remove_test_file, "r") as f:
+        content = f.read()
+    
+    # Check that the debug line was removed
+    assert "print('Debug output')" not in content
+    assert "# Debug code to remove" not in content
+    assert "def test_function():" in content
+    assert "print('This is a test')" in content
+    assert "return True" in content
+    
+    # Now test removing multiple lines - remove the header comments
+    query2 = f"Remove the first two comment lines from {remove_test_file}"
+    result2 = run_query(query2, test_name="test_remove_lines_query_multiple", log_dirs=setup_logging_directories)
+    
+    # Log the file content after second modification
+    if setup_logging_directories:
+        log_dir = setup_logging_directories.get("integration")
+        timestamp = time.strftime("%H%M%S")
+        with open(os.path.join(log_dir, f"test_remove_lines_query_{timestamp}_after2.txt"), "w") as f:
+            f.write(f"=== File after second modification: {remove_test_file} ===\n")
+            with open(remove_test_file, "r") as src:
+                f.write(src.read())
+    
+    # Verify the file was modified correctly
+    with open(remove_test_file, "r") as f:
+        content2 = f.read()
+    
+    # Check that the header comments were removed
+    assert "# Line 1 - Header comment" not in content2
+    assert "# Line 2 - License info" not in content2
+    assert content2.strip().startswith("def test_function()")
+
+
 def test_run_linter_query(temp_test_dir, setup_logging_directories):
     """Test query for running the linter on a file"""
     error_file = os.path.join(temp_test_dir, "error_file.py")

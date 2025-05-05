@@ -203,6 +203,83 @@ async def insert_in_file(path: str, insert_line: int, new_str: str, enable_linti
     )
     return result
 
+@mcp.tool()
+async def remove_lines_in_file(path: str, start_line: int, end_line: int = -1, enable_linting: bool = False):
+    """
+    Remove specified lines from a file.
+    
+    Removes the lines between start_line and end_line (inclusive).
+    If end_line is -1, removes from start_line to the end of the file.
+    
+    Parameters:
+        path (str): Absolute path to the file to modify
+        start_line (int): Starting line number to remove (STARTING FROM 1)
+        end_line (int, optional): Ending line number to remove (inclusive). Default is -1 (end of file)
+        enable_linting (bool, optional): Run linting after edit (default: False)
+    
+    Returns:
+        str: Output block in format <oh_aci_output_{id}>...<\oh_aci_output_{id}>
+            Includes JSON with keys:
+            - 'path': The file path
+            - 'old_content': The original file content
+            - 'new_content': The modified file content
+            - 'error': Error message if operation failed
+    
+    Raises:
+        ValueError: If the file doesn't exist or can't be modified
+        
+    Notes:
+        - Line numbering starts at 1 (first line is line 1)
+        - If end_line is -1, it means removing from start_line to the end of the file
+        - If the line range is outside file boundaries, the function will adjust accordingly
+        - For binary or oversized files, the operation will fail
+    
+    Typical Use Cases:
+        - Remove unused code: delete deprecated functions or imports
+        - Clean up files: remove debug statements or commented code
+        - Refactor: remove code blocks that have been moved elsewhere
+    """
+    try:
+        # Read the file directly
+        with open(path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            original_content = ''.join(lines)
+        
+        # Calculate actual line numbers
+        total_lines = len(lines)
+        
+        # Convert start_line to 0-indexed
+        start_idx = max(0, start_line - 1)
+        
+        # Handle end_line
+        if end_line == -1:
+            end_idx = total_lines - 1
+        else:
+            end_idx = min(end_line - 1, total_lines - 1)
+        
+        # Remove the specified lines
+        new_lines = lines[:start_idx] + lines[end_idx + 1:]
+        new_content = ''.join(new_lines)
+        
+        # Use str_replace to perform the edit
+        result = file_editor(
+            command="str_replace",
+            path=path,
+            old_str=original_content,
+            new_str=new_content,
+            enable_linting=enable_linting,
+        )
+        
+        return result
+    except Exception as e:
+        import json
+        marker_id = "error"
+        error_result = {
+            "path": path,
+            "error": f"Error removing lines: {str(e)}"
+        }
+        return f'<oh_aci_output_{marker_id}>\n{json.dumps(error_result)}\n</oh_aci_output_{marker_id}>'
+
 # @mcp.tool()
 # async def undo_edit(path: str):
 #     """

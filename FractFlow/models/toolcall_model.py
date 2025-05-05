@@ -2,6 +2,7 @@ import json
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
 from json_repair import repair_json
+from tokencost import calculate_prompt_cost
 
 from openai import OpenAI
 
@@ -39,7 +40,8 @@ class ToolCallHelper:
         self.base_url = self.config.get('tool_calling.base_url', 'https://api.deepseek.com')
         self.api_key = self.config.get('tool_calling.api_key', self.config.get('deepseek.api_key'))
         self.model = self.config.get('tool_calling.model', 'deepseek-chat')
-        
+        self.temperature = self.config.get('tool_calling.temperature', 0)
+        # self.default_max_tokens = self.config.get('tool_calling.default_max_tokens', 8192)
         self.logger.debug("Tool call helper initialized", {
             "model": self.model,
             "max_retries": self.max_retries
@@ -86,6 +88,29 @@ class ToolCallHelper:
         
         self.logger.debug("Creating system prompt", {"tools_count": len(tools)})
         
+        json_example = """{
+    "tool_calls": [
+        {
+            "function": {
+                "name": "tool_name",
+                "arguments": {
+                    "param1": "value1",
+                    "param2": "value2"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "another_tool_name",
+                "arguments": {
+                    "param1": "value1",
+                    "param2": "value2"
+                }
+            }
+        }
+    ]
+}"""
+
         return f"""You are a tool calling expert. Your task is to generate correct JSON format tool calls based ONLY on the tools that are available.
 
 AVAILABLE TOOLS (ONLY USE THESE - DO NOT INVENT NEW ONES):
@@ -99,26 +124,71 @@ IMPORTANT RULES:
 5. If only one tool is needed, still use the proper array format with a single element
 
 You must output strictly in the following JSON format:
-{{
-    "tool_calls": [
-        {{
-            "function": {{
-                "name": "tool_name",
-                "arguments": "{{\\\"parameter_name\\\": \\\"parameter_value\\\"}}",
-            }}
-        }},
-        {{
-            "function": {{
-                "name": "another_tool_name",
-                "arguments": "{{\\\"parameter_name\\\": \\\"parameter_value\\\"}}",
-            }}
-        }}
-    ]
-}}
+{json_example}
 
 The number of tool calls in the array should match exactly what's needed - don't add unnecessary calls.
 For simple requests needing only one tool call, return an array with just one element.
-Output JSON only, no other text. The arguments must be a valid JSON string (with escaped quotes)."""
+Output JSON only, no other text. The arguments must be a valid JSON object."""
+    
+    def _estimate_token_count(self, messages: List[Dict[str, str]]) -> int:
+        """
+        Estimate the token count for a given set of messages.
+        
+        Args:
+            messages: List of message dictionaries with role and content
+            
+        Returns:
+            Estimated token count
+        """
+        try:
+            # Use tokencost to calculate the token count
+            # We use the model name to determine the encoding
+            token_cost = calculate_prompt_cost(messages, self.model)
+            # Convert the cost to token count (approximate)
+            # This is a rough estimate based on pricing
+            estimated_tokens = int(token_cost * 1000 * 1000)  # Convert from $ to token count approximation
+            
+            self.logger.debug("Estimated token count", {
+                "messages_count": len(messages),
+                "estimated_tokens": estimated_tokens
+            })
+            
+            return estimated_tokens
+        except Exception as e:
+            self.logger.warning(f"Error estimating token count", {"error": str(e)})
+            # Return a conservative estimate
+            return sum(len(m.get("content", "")) for m in messages) // 2
+    
+    def _calculate_max_tokens(self, messages: List[Dict[str, str]]) -> int:
+        """
+        Calculate appropriate max_tokens based on input token count.
+        
+        Args:
+            messages: List of message dictionaries
+            
+        Returns:
+            Calculated max_tokens value
+        """
+        # Estimate input token count
+        input_tokens = self._estimate_token_count(messages)
+        
+        # Set context window size based on model
+        context_window = 8192
+        
+        # Calculate max_tokens to leave room for input and a reasonable output
+        # Reserve at least 25% of context window for response
+        # max_output_tokens = min(
+        #     self.default_max_tokens,
+        #     max(512, context_window - input_tokens - 50)  # 50 tokens buffer
+        # )
+        max_output_tokens = max(512, context_window - input_tokens - 50)  # 50 tokens buffer
+        self.logger.debug("Calculated max_tokens", {
+            "input_tokens": input_tokens,
+            "context_window": context_window,
+            "max_output_tokens": max_output_tokens
+        })
+        
+        return max_output_tokens
     
     async def _create_chat_completion(self, **kwargs) -> Tuple[Optional[Any], Optional[Exception]]:
         """
@@ -140,9 +210,17 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             # Add model if not provided
             if 'model' not in kwargs:
                 kwargs['model'] = self.model
+            kwargs['temperature'] = self.temperature
+            
+            # Set max_tokens dynamically if not explicitly provided
+            if 'max_tokens' not in kwargs and 'messages' in kwargs:
+                kwargs['max_tokens'] = self._calculate_max_tokens(kwargs['messages'])
                 
             # Call the API
-            self.logger.debug("Calling chat completion API")
+            self.logger.debug("Calling chat completion API", {
+                "model": kwargs.get('model'),
+                "max_tokens": kwargs.get('max_tokens')
+            })
             result = self.client.chat.completions.create(**kwargs)
             self.logger.debug("API call successful")
             return await result if hasattr(result, "__await__") else result, None
@@ -184,19 +262,30 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
                 tool_calls = []
                 for i, call_data in enumerate(model_response["tool_calls"]):
                     if "function" not in call_data:
-                        self.logger.error(f"Tool call missing function object", {"index": i})
+                        self.logger.error("Tool call missing function object", {"index": i})
                         continue
                         
+                    function_data = call_data.get("function", {})
+                    
+                    # Ensure arguments is a proper dictionary
+                    if "arguments" in function_data and isinstance(function_data["arguments"], str):
+                        try:
+                            # Convert arguments string to dictionary if needed (for backward compatibility)
+                            function_data["arguments"] = json.loads(function_data["arguments"])
+                        except json.JSONDecodeError:
+                            self.logger.error("Failed to parse arguments string as JSON", {"index": i})
+                            continue
+                            
                     # Add ID and type fields to each call
                     call_id = self.generate_call_id()
                     tool_call = {
                         "id": call_id,
                         "type": "function",
-                        "function": call_data.get("function", {})
+                        "function": function_data
                     }
                     tool_calls.append(tool_call)
                 
-                self.logger.debug(f"Parsed tool calls", {"count": len(tool_calls)})
+                self.logger.debug("Parsed tool calls", {"count": len(tool_calls)})
                 return tool_calls
                 
             # Handle single tool call format (for backward compatibility)
@@ -321,13 +410,16 @@ Output JSON only, no other text. The arguments must be a valid JSON string (with
             - Exception if an error occurred, or None if successful
         """
         try:
+            # Build messages for the API call
+            messages = [
+                {"role": "system", "content": self.create_system_prompt(tools)},
+                {"role": "user", "content": instruction}
+            ]
+            
             # Call the model with appropriate formatting
             self.logger.debug("Calling model with instruction")
             response, error = await self._create_chat_completion(
-                messages=[
-                    {"role": "system", "content": self.create_system_prompt(tools)},
-                    {"role": "user", "content": instruction}
-                ],
+                messages=messages,
                 response_format={"type": "json_object"}
             )
             
@@ -476,20 +568,13 @@ Please rewrite this instruction based on the error message while maintaining its
         # Verify that the tool exists
         tool_name = function["name"]
         if tool_name not in available_tools:
-            self.logger.error(f"Tool not in available tools", {"tool": tool_name})
+            self.logger.error("Tool not in available tools", {"tool": tool_name})
             return False
             
-        # Verify that the arguments is a valid JSON string
+        # Verify that the arguments is a valid JSON object (dictionary)
         arguments = function["arguments"]
-        if not isinstance(arguments, str):
-            self.logger.error("Arguments must be a string")
-            return False
-            
-        try:
-            # Attempt to parse the arguments as JSON
-            json.loads(arguments)
-        except json.JSONDecodeError:
-            self.logger.error(f"Arguments is not valid JSON", {"args": arguments[:100]+"..." if len(arguments) > 100 else arguments})
+        if not isinstance(arguments, dict):
+            self.logger.error("Arguments must be a JSON object (dictionary)")
             return False
             
         # Everything looks good
