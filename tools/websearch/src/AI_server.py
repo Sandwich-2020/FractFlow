@@ -9,7 +9,7 @@ It can be run in two modes:
 The module initializes a FractFlow agent with the Web Search tool and
 handles user interactions according to the chosen mode.
 
-Author: Xinli Xu (xxu068@connect.hkust-gz.edu.cn) - Envision Lab
+Author: Yingcong Chen (xxu068@connect.hkust-gz.edu.cn) - Envision Lab
 Date: 2025-04-28
 License: MIT License
 """
@@ -20,7 +20,7 @@ import sys
 import logging
 import argparse
 from dotenv import load_dotenv
-
+from mcp.server.fastmcp import FastMCP
 import os.path as osp
 # Add the project root directory to the Python path
 project_root = osp.abspath(osp.join(osp.dirname(__file__), '../..'))
@@ -32,16 +32,19 @@ from FractFlow.infra.config import ConfigManager
 from FractFlow.infra.logging_utils import setup_logging, get_logger
 
 # Setup logging
-setup_logging(level=logging.DEBUG)
+setup_logging(level=logging.INFO)
 
+mcp = FastMCP("web_search_browse_tool")
 
 async def create_agent():
     """Create and initialize the Agent"""
     load_dotenv()
     # Create a new agent
-    agent = Agent('websearch_and_fileio_agent')  # No need to specify provider here if it's in config
+    agent = Agent('websearch_agent')  # No need to specify provider here if it's in config
     config = agent.get_config()
+    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['agent']['provider'] = 'deepseek'
+    config['agent']['custom_system_prompt'] = '当调用网页浏览工具无法得出具体或者确切的答案时，请调用网页浏览工具来浏览相关性最强的网页回答。请你一次性回答，避免让用户确认'
 
     # config['agent']['custom_system_prompt'] = """
     # You are an intelligent assistant. You carefully analyze user requests and determine if external tools are needed.
@@ -52,13 +55,17 @@ async def create_agent():
     # """
     config['deepseek']['model'] = 'deepseek-chat'
     # You can modify configuration values directly
-    config['agent']['max_iterations'] = 20  # Properly set as nested value
+    config['agent']['max_iterations'] = 5  # Properly set as nested value
     # 4. Set configuration loaded from environment
     agent.set_config(config)
     
     # Add tools to the agent
-    agent.add_tool("./tools/websearch/src/AI_server.py", "websearch_tool")
-    agent.add_tool("./tools/editor/server.py", "editor_tool")
+
+    # Get the current directory path
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    server_path = os.path.join(current_dir, "server.py")
+    
+    agent.add_tool(server_path, "web_search")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()
@@ -66,49 +73,15 @@ async def create_agent():
     return agent
 
 
-async def interactive_mode(agent):
-    """Interactive chat mode"""
-    print("Agent chat started. Type 'exit', 'quit', or 'bye' to end the conversation.")
-    while True:
-        user_input = input("\nYou: ")
-        if user_input.lower() in ('exit', 'quit', 'bye'):
-            break
-            
-        print("\n thinking... \n", end="")
-        result = await agent.process_query(user_input)
-        print("Agent: {}".format(result))
 
-
+@mcp.tool()
 async def single_query_mode(agent, query):
     """One-time execution mode"""
-    print(f"Processing query: {query}")
-    print("\n thinking... \n", end="")
+    agent = await create_agent()
     result = await agent.process_query(query)
-    print("Result: {}".format(result))
+    await agent.shutdown()
     return result
 
 
-async def main():
-    # Command line argument parsing
-    parser = argparse.ArgumentParser(description='Run Web Search Tool Server')
-    parser.add_argument('--user_query', type=str, help='Single query mode: process this query and exit')
-    args = parser.parse_args()
-    
-    # Create Agent
-    agent = await create_agent()
-    
-    try:
-        if args.user_query:
-            # Single query mode
-            await single_query_mode(agent, args.user_query)
-        else:
-            # Interactive chat mode
-            await interactive_mode(agent)
-    finally:
-        # Close Agent
-        await agent.shutdown()
-        print("\nAgent session ended.")
-
-
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    mcp.run(transport='stdio') 
