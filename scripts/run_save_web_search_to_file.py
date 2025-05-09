@@ -43,13 +43,9 @@ async def create_agent():
     config = agent.get_config()
     config['agent']['provider'] = 'deepseek'
 
-    # config['agent']['custom_system_prompt'] = """
-    # You are an intelligent assistant. You carefully analyze user requests and determine if external tools are needed.
-    # When a user asks you some knowledge and needs to use the search_from_web tool, please decide based on the amount of information you searched. 
-    # If it is not enough, do not answer directly, use web_browse tool. Next, call the web browsing tool to view the web page to get more information.
-    # If the amount of information is enough, you can answer directly.
-
-    # """
+    config['agent']['custom_system_prompt'] = """
+    当你要输出很多内容并保存到文件时，请直接调用工具。
+     """
     config['deepseek']['model'] = 'deepseek-chat'
     # You can modify configuration values directly
     config['agent']['max_iterations'] = 20  # Properly set as nested value

@@ -76,7 +76,7 @@ async def create_file(path: str, file_text: str, enable_linting: bool = False):
     """
     Create a new file with the specified content.
     
-    Creates a new file at the specified path with the provided content. The operation will fail if the file already exists.
+    Creates a new file at the specified path with the provided content. The operation will FAIL if the file already exists.
     
     Parameters:
         path (str): Absolute path where the new file should be created
@@ -277,6 +277,108 @@ async def remove_lines_in_file(path: str, start_line: int, end_line: int = -1, e
         error_result = {
             "path": path,
             "error": f"Error removing lines: {str(e)}"
+        }
+        return f'<oh_aci_output_{marker_id}>\n{json.dumps(error_result)}\n</oh_aci_output_{marker_id}>'
+
+@mcp.tool()
+async def append_in_file(path: str, text_to_append: str, ensure_newline: bool = True, enable_linting: bool = False):
+    """
+    Append text to the end of a file.
+    
+    Adds the provided text at the end of the specified file. Optionally ensures the file
+    ends with a newline before appending the new text.
+    
+    Parameters:
+        path (str): Absolute path to the file to modify
+        text_to_append (str): Text to append to the end of the file
+        ensure_newline (bool, optional): Ensure file ends with newline before appending (default: True)
+        enable_linting (bool, optional): Run linting after edit (default: False)
+    
+    Returns:
+        str: Output block in format <oh_aci_output_{id}>...<\oh_aci_output_{id}>
+            Includes JSON with keys:
+            - 'path': The file path
+            - 'old_content': The original file content
+            - 'new_content': The modified file content
+            - 'error': Error message if operation failed
+    
+    Raises:
+        ValueError: If the file doesn't exist or can't be modified
+        
+    Notes:
+        - If ensure_newline is True, a newline will be added before the new text if the file doesn't already end with one
+        - For binary or oversized files, the operation will fail
+        - If the file does not exist, the operation will fail (use create_file instead)
+    
+    Typical Use Cases:
+        - Add new entries: append entries to a log file
+        - Extend configurations: add new configuration options
+        - Add imports: append import statements to a file
+    """
+    import json
+    import uuid
+
+    try:
+        # Check if file exists
+        if not os.path.exists(path):
+            raise ValueError(f"File does not exist: {path}")
+        
+        # Read the file directly
+        with open(path, 'r', encoding='utf-8') as f:
+            original_content = f.read()
+        
+        # Prepare new content
+        new_content = original_content
+        
+        # Ensure the file ends with a newline if requested
+        if ensure_newline and original_content and not original_content.endswith('\n'):
+            new_content += '\n'
+        
+        # Append the new text
+        new_content += text_to_append
+        
+        # Write the modified content back to the file
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        # Run linting if enabled
+        lint_results = None
+        if enable_linting:
+            # Determine language based on file extension
+            _, ext = os.path.splitext(path)
+            language_map = {
+                '.py': 'python',
+                '.js': 'javascript',
+                '.ts': 'typescript',
+                '.html': 'html',
+                '.css': 'css',
+                '.json': 'json'
+            }
+            language = language_map.get(ext.lower(), '')
+            
+            if language:
+                linter = DefaultLinter()
+                lint_results = linter.run(path, language)
+        
+        # Create result with unique identifier
+        marker_id = str(uuid.uuid4())[:8]
+        result = {
+            "path": path,
+            "old_content": original_content,
+            "new_content": new_content
+        }
+        
+        if lint_results:
+            result["lint_results"] = lint_results
+        
+        # Format the result as required
+        return f'<oh_aci_output_{marker_id}>\n{json.dumps(result)}\n</oh_aci_output_{marker_id}>'
+    
+    except Exception as e:
+        marker_id = "error"
+        error_result = {
+            "path": path,
+            "error": f"Error appending to file: {str(e)}"
         }
         return f'<oh_aci_output_{marker_id}>\n{json.dumps(error_result)}\n</oh_aci_output_{marker_id}>'
 

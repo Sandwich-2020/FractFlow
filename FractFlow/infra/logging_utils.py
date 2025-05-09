@@ -25,6 +25,12 @@ def format_extra_as_yaml(record):
     if "logger_name" in extras:
         del extras["logger_name"]
     
+    # Remove caller info as it's already displayed in the log format
+    if "caller_file" in extras:
+        del extras["caller_file"]
+    if "caller_line" in extras:
+        del extras["caller_line"]
+    
     # If there are any extra fields, format them as YAML
     if extras:
         # Convert to YAML, remove the document start marker
@@ -53,7 +59,7 @@ def setup_logging(level: int = 20, use_colors: bool = True, namespace_levels: Op
     logger.remove()
     
     # Define format with YAML-formatted extra data
-    log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> <level>[{level}]</level> <cyan>{extra[logger_name]}</cyan>: <level>{message}</level>{extra_yaml}"
+    log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> <level>[{level}]</level> <cyan>{extra[logger_name]}</cyan> <blue>({extra[caller_file]}:{extra[caller_line]})</blue>: <level>{message}</level>{extra_yaml}"
     
     # Add console handler with coloring
     handler_id = logger.add(
@@ -113,8 +119,20 @@ class LoggerWrapper:
         }
 
     def _log(self, level: str, message: str, data: Optional[Dict[str, Any]] = None):
-        # Setup context with logger_name 
-        context = {"logger_name": self.name}
+        # Get caller's frame (2 levels up in the stack to skip this method and the calling log method)
+        frame = inspect.currentframe().f_back.f_back
+        file_path = frame.f_code.co_filename
+        line_no = frame.f_lineno
+        
+        # Extract just the filename from the path
+        filename = file_path.split("/")[-1]
+        
+        # Setup context with logger_name and caller info
+        context = {
+            "logger_name": self.name,
+            "caller_file": filename,
+            "caller_line": line_no
+        }
         
         # Add any additional data
         if data:

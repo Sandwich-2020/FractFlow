@@ -10,7 +10,7 @@ from ..infra.config import ConfigManager
 from ..infra.error_handling import handle_error
 from ..infra.logging_utils import get_logger
 
-class ToolCallHelper:
+class ToolCallHelper_v1:
     """
     Tool calling helper for generating tool calls from instructions.
     
@@ -588,3 +588,700 @@ Please rewrite this instruction based on the error message while maintaining its
             Unique ID string
         """
         return f"call_{str(uuid.uuid4())[:8]}"
+
+
+class ToolCallHelper_v2:
+    def __init__(self, config: ConfigManager):
+        self.config = config
+        
+        # Push component name to call path
+        self.config.push_to_call_path("tool_call_helper_v2")
+        
+        # Initialize logger
+        self.logger = get_logger(self.config.get_call_path())
+        
+        # Load configuration with defaults
+        self.max_retries = self.config.get('tool_calling.max_retries', 5)
+        self.base_url = self.config.get('tool_calling.base_url', 'https://api.deepseek.com')
+        self.api_key = self.config.get('tool_calling.api_key', self.config.get('deepseek.api_key'))
+        self.model = self.config.get('tool_calling.model', 'deepseek-chat')
+        self.temperature = self.config.get('tool_calling.temperature', 0)
+        
+        self.client = None
+        
+        self.logger.debug("ToolCallHelper_v2 initialized", {
+            "model": self.model,
+            "max_retries": self.max_retries
+        })
+    
+    async def initialize_client(self) -> OpenAI:
+        """
+        Initialize the OpenAI-compatible client.
+        
+        Returns:
+            Configured OpenAI client
+        """
+        if self.client is None:
+            self.logger.debug("Initializing OpenAI client", {"base_url": self.base_url})
+            self.client = OpenAI(
+                base_url=self.base_url,
+                api_key=self.api_key
+            )
+        return self.client
+
+    async def _create_chat_completion(self, **kwargs) -> Tuple[Optional[Any], Optional[Exception]]:
+        """
+        Handle API call to the model provider.
+        
+        Args:
+            **kwargs: Arguments to pass to the chat completions API
+            
+        Returns:
+            Tuple containing:
+            - The API response or None if failed
+            - The exception if an error occurred, or None if successful
+        """
+        try:
+            # Make sure client is initialized
+            if not self.client:
+                await self.initialize_client()
+                
+            # Add model if not provided
+            if 'model' not in kwargs:
+                kwargs['model'] = self.model
+            kwargs['temperature'] = self.temperature
+            
+            # Set max_tokens dynamically if not explicitly provided
+            if 'max_tokens' not in kwargs and 'messages' in kwargs:
+                input_tokens = sum(len(m.get("content", "")) for m in kwargs['messages']) // 4  # Rough estimate
+                max_output_tokens = max(512, 8192 - input_tokens - 50)  # 50 tokens buffer
+                kwargs['max_tokens'] = max_output_tokens
+                
+            # Call the API
+            self.logger.debug("Calling chat completion API", {
+                "model": kwargs.get('model'),
+                "max_tokens": kwargs.get('max_tokens')
+            })
+            result = self.client.chat.completions.create(**kwargs)
+            self.logger.debug("API call successful")
+            return await result if hasattr(result, "__await__") else result, None
+        except Exception as e:
+            error = handle_error(e, {"kwargs": kwargs})
+            self.logger.error(f"API call error", {"error": str(error)})
+            return None, error
+
+    async def call_tool(self, instruction: str, tools: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Execute a tool call using adaptive retry mechanism.
+        Can generate multiple tool calls from a single instruction.
+        
+        Args:
+            instruction: The instruction to execute
+            tools: List of available tools
+            
+        Returns:
+            Tuple containing:
+            - List of valid tool calls in OpenAI format
+            - Stats dictionary with success/failure information
+        """
+        stats = {
+            "attempts": 1,
+            "success": False,
+            "valid_calls": 0,
+            "invalid_calls": 0,
+            "total_calls": 0,
+            "errors": []
+        }
+        
+        self.logger.info("Starting tool call processing", {"tools_available": len(tools)})
+        
+        try:
+            # Try to repair and parse the JSON from the instruction
+            # fixed_json = repair_json(instruction)
+            self.logger.debug("Parsing instruction JSON", {"instruction_length": len(instruction)})
+            parsed_json = json.loads(instruction)
+            
+            # Repair and validate the instruction with available tools
+            self.logger.debug("Starting instruction repair and validation")
+            repaired_tool_calls, repair_stats = await self.repair_instruction(parsed_json, tools)
+            stats.update(repair_stats)
+            
+            if repaired_tool_calls:
+                stats["success"] = True
+                stats["total_calls"] = len(repaired_tool_calls)
+                stats["valid_calls"] = len(repaired_tool_calls)
+                self.logger.info("Successfully repaired tool calls", {
+                    "total_calls": len(repaired_tool_calls),
+                    "stats": repair_stats
+                })
+                return repaired_tool_calls, stats
+            else:
+                stats["errors"].append("Failed to repair tool calls")
+                self.logger.warning("Failed to repair any tool calls", {"stats": repair_stats})
+                return [], stats
+                
+        except json.JSONDecodeError as e:
+            error_msg = f"JSON parsing error: {str(e)}"
+            stats["errors"].append(error_msg)
+            self.logger.error(error_msg, {"error_location": str(e.pos)})
+            return [], stats
+        except Exception as e:
+            error_msg = f"Unexpected error in call_tool: {str(e)}"
+            stats["errors"].append(error_msg)
+            self.logger.error(error_msg, {"error_type": type(e).__name__})
+            return [], stats
+            
+    async def repair_instruction(self, parsed_json: Dict[str, Any], available_tools: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Validates and repairs tool calls in the instruction.
+        
+        Args:
+            parsed_json: Parsed JSON from the instruction
+            available_tools: List of available tools
+            
+        Returns:
+            Tuple containing:
+            - List of repaired tool calls
+            - Stats dictionary with repair information
+        """
+        repair_stats = {
+            "validated_calls": 0,
+            "repaired_calls": 0,
+            "failed_repairs": 0,
+            "param_optimizations": 0
+        }
+        
+        # Extract available tool names and their parameters
+        tool_map = {}
+        for tool in available_tools:
+            tool_name = tool['function']['name']
+            parameters = {}
+            if 'parameters' in tool['function'] and 'properties' in tool['function']['parameters']:
+                parameters = tool['function']['parameters']['properties']
+            tool_map[tool_name] = {
+                'parameters': parameters,
+                'description': tool['function'].get('description', ''),
+                'required': tool['function'].get('parameters', {}).get('required', [])
+            }
+        
+        self.logger.debug("Available tools mapped", {
+            "tool_count": len(tool_map), 
+            "tools": list(tool_map.keys())
+        })
+        
+        # Parameter value mapping for optimization
+        param_value_map = {}
+        
+        # Process tool calls
+        result_tool_calls = []
+        
+        if "tool_calls" not in parsed_json or not isinstance(parsed_json["tool_calls"], list):
+            self.logger.warning("No valid tool_calls array found in JSON", {
+                "json_keys": list(parsed_json.keys())
+            })
+            return [], repair_stats
+            
+        tool_calls_array = parsed_json["tool_calls"]
+        self.logger.debug("Processing tool calls array", {"count": len(tool_calls_array)})
+        
+        for call_idx, call_data in enumerate(tool_calls_array):
+            self.logger.debug(f"Processing tool call", {"index": call_idx})
+            
+            if "function" not in call_data:
+                self.logger.warning("Tool call missing function object", {"index": call_idx})
+                repair_stats["failed_repairs"] += 1
+                continue
+            
+            function_data = call_data.get("function", {})
+            tool_name = function_data.get("name", "")
+            arguments = function_data.get("arguments", {})
+            
+            self.logger.debug(f"Tool call details", {
+                "index": call_idx,
+                "tool": tool_name,
+                "arg_count": len(arguments) if isinstance(arguments, dict) else 0
+            })
+            
+            # Ensure arguments is a dictionary
+            if isinstance(arguments, str):
+                try:
+                    self.logger.debug("Converting string arguments to JSON", {"index": call_idx})
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError as e:
+                    self.logger.warning("Failed to parse arguments string as JSON", {
+                        "index": call_idx,
+                        "error": str(e)
+                    })
+                    arguments = {}
+            
+            # Check if tool exists
+            valid_tool_name = tool_name
+            if tool_name not in tool_map:
+                self.logger.warning(f"Invalid tool name", {
+                    "tool": tool_name,
+                    "available_tools": list(tool_map.keys())
+                })
+                
+                # Find closest match
+                self.logger.debug(f"Attempting to find closest tool match", {"invalid_tool": tool_name})
+                closest_tool = await self._find_closest_tool(tool_name, tool_map, function_data)
+                
+                if closest_tool:
+                    valid_tool_name = closest_tool
+                    repair_stats["repaired_calls"] += 1
+                    self.logger.info(f"Repaired invalid tool name", {
+                        "original": tool_name,
+                        "repaired": closest_tool
+                    })
+                else:
+                    self.logger.error(f"Failed to find closest tool match", {"invalid_tool": tool_name})
+                    repair_stats["failed_repairs"] += 1
+                    continue
+            
+            # Validate and optimize parameters
+            valid_args = {}
+            if valid_tool_name in tool_map:
+                valid_params = tool_map[valid_tool_name]['parameters']
+                required_params = tool_map[valid_tool_name]['required']
+                
+                self.logger.debug(f"Validating parameters", {
+                    "tool": valid_tool_name,
+                    "valid_params": list(valid_params.keys()),
+                    "required_params": required_params
+                })
+                
+                # Check each parameter
+                for param_name, param_value in arguments.items():
+                    # If parameter exists in tool definition
+                    if param_name in valid_params:
+                        # Optimize large parameter values
+                        if isinstance(param_value, str) and len(param_value) > 100:
+                            param_id = f"PARAM_{len(param_value_map)}"
+                            param_value_map[param_id] = param_value
+                            valid_args[param_name] = param_id
+                            repair_stats["param_optimizations"] += 1
+                            self.logger.debug(f"Optimized large parameter", {
+                                "param": param_name,
+                                "original_size": len(param_value),
+                                "placeholder": param_id
+                            })
+                        else:
+                            valid_args[param_name] = param_value
+                    else:
+                        self.logger.warning(f"Invalid parameter name", {
+                            "tool": valid_tool_name, 
+                            "param": param_name,
+                            "valid_params": list(valid_params.keys())
+                        })
+                
+                # Add required parameters if missing
+                missing_required = []
+                for req_param in required_params:
+                    if req_param not in valid_args:
+                        valid_args[req_param] = "" # Empty placeholder for required params
+                        missing_required.append(req_param)
+                        
+                if missing_required:
+                    self.logger.warning(f"Added missing required parameters", {
+                        "tool": valid_tool_name,
+                        "missing_params": missing_required
+                    })
+            
+            # Create repaired tool call
+            call_id = call_data.get("id", f"call_{str(uuid.uuid4())[:8]}")
+            repaired_call = {
+                "id": call_id,
+                "type": "function",
+                "function": {
+                    "name": valid_tool_name,
+                    "arguments": valid_args
+                }
+            }
+            
+            result_tool_calls.append(repaired_call)
+            repair_stats["validated_calls"] += 1
+            self.logger.debug(f"Validated tool call", {
+                "index": call_idx,
+                "tool": valid_tool_name,
+                "param_count": len(valid_args)
+            })
+        
+        # Restore optimized parameter values
+        if param_value_map:
+            self.logger.debug(f"Restoring optimized parameters", {"count": len(param_value_map)})
+            
+        for tool_call in result_tool_calls:
+            arguments = tool_call["function"]["arguments"]
+            for param_name, param_value in list(arguments.items()):
+                if isinstance(param_value, str) and param_value.startswith("PARAM_"):
+                    if param_value in param_value_map:
+                        arguments[param_name] = param_value_map[param_value]
+                        self.logger.debug(f"Restored parameter value", {
+                            "param": param_name,
+                            "tool": tool_call["function"]["name"],
+                            "placeholder": param_value,
+                            "restored_size": len(param_value_map[param_value])
+                        })
+        
+        self.logger.info(f"Repair instruction completed", {
+            "original_count": len(parsed_json.get("tool_calls", [])),
+            "repaired_count": len(result_tool_calls),
+            "stats": repair_stats
+        })
+        
+        return result_tool_calls, repair_stats
+    
+    async def _find_closest_tool(self, invalid_tool: str, tool_map: Dict[str, Any], function_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Find the closest matching tool using LLM assistance.
+        
+        Args:
+            invalid_tool: Invalid tool name
+            tool_map: Map of available tools
+            function_data: Function data with arguments
+            
+        Returns:
+            Name of closest matching tool or None if not found
+        """
+        try:
+            self.logger.debug(f"Finding closest tool match for '{invalid_tool}'")
+            
+            # Create a list of available tools with descriptions
+            tool_descriptions = []
+            for name, info in tool_map.items():
+                params = ", ".join(info['parameters'].keys())
+                tool_descriptions.append(f"- {name}: {info['description']}\n  Parameters: {params}")
+            
+            available_tools_str = "\n".join(tool_descriptions)
+            
+            # Format the invalid tool with its arguments
+            args_str = json.dumps(function_data.get("arguments", {}), indent=2)
+            
+            # Create prompt for LLM
+            system_prompt = """You are a tool matching expert. Your task is to find the closest matching 
+tool from the available tools list that matches the intent of the invalid tool call.
+Only respond with the exact name of the closest matching tool - no explanation or other text."""
+            
+            user_prompt = f"""Invalid tool: {invalid_tool}
+Arguments: {args_str}
+
+Available tools:
+{available_tools_str}
+
+What is the closest matching tool from the available tools list? Respond with ONLY the exact tool name."""
+            
+            # Call LLM for tool recommendation
+            self.logger.debug(f"Calling LLM for tool recommendation")
+            response, error = await self._create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.1,
+                max_tokens=50
+            )
+            
+            if error:
+                self.logger.warning(f"LLM recommendation error", {"error": str(error)})
+                return None
+                
+            if not response:
+                self.logger.warning(f"Empty LLM response for tool recommendation")
+                return None
+                
+            # Extract suggested tool name
+            suggested_tool = response.choices[0].message.content.strip()
+            self.logger.debug(f"LLM suggested tool", {"suggestion": suggested_tool})
+            
+            # Validate the suggested tool exists
+            if suggested_tool in tool_map:
+                self.logger.info(f"Using LLM suggested tool", {
+                    "invalid": invalid_tool,
+                    "suggestion": suggested_tool
+                })
+                return suggested_tool
+            else:
+                self.logger.warning(f"LLM suggested invalid tool", {
+                    "suggestion": suggested_tool,
+                    "valid_tools": list(tool_map.keys())
+                })
+                
+                # Fall back to best effort string matching
+                self.logger.debug(f"Falling back to string similarity matching")
+                best_match = None
+                best_score = 0
+                for tool_name in tool_map.keys():
+                    # Simple similarity score based on common characters
+                    score = sum(1 for a, b in zip(invalid_tool, tool_name) if a == b)
+                    if score > best_score:
+                        best_score = score
+                        best_match = tool_name
+                
+                # Only return if we have a reasonable match
+                similarity_threshold = len(invalid_tool) * 0.3
+                if best_score > similarity_threshold:
+                    self.logger.info(f"Found similar tool via string matching", {
+                        "invalid": invalid_tool,
+                        "match": best_match,
+                        "score": best_score,
+                        "threshold": similarity_threshold
+                    })
+                    return best_match
+                else:
+                    self.logger.warning(f"No similar tool found", {
+                        "invalid": invalid_tool,
+                        "best_score": best_score,
+                        "threshold": similarity_threshold
+                    })
+                    
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error finding closest tool", {
+                "invalid_tool": invalid_tool,
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
+            return None
+
+class ToolCallFactory:
+    def __init__(self, config: ConfigManager):
+        self.config = config
+
+    def create_tool_call_helper(self):
+        if self.config.get('tool_calling.version') == 'v1':
+            return ToolCallHelper_v1(self.config)
+        elif self.config.get('tool_calling.version') == 'v2':
+            return ToolCallHelper_v2(self.config)
+        else:
+            raise ValueError(f"Unsupported tool calling version: {self.config.get('tool_calling.version')}")
+
+    def create_tool_call_instruction(self):
+        # Instructions for the main reasoner model on how to request tool calls with ReAct methodology
+        TOOL_REQUEST_INSTRUCTIONS_v1 = """You operate using the ReAct (Reasoning + Acting) methodology, with support for both sequential and parallel tool execution.
+
+        GENERAL PRINCIPLES:
+        1. First THINK about what information you need and which tools would provide it
+        2. Then REQUEST appropriate tools using the <tool_request> tag
+        3. After receiving results, OBSERVE the outcomes
+        4. Then DECIDE whether to use more tools or provide a final answer
+
+        SEQUENTIAL VS PARALLEL TOOL CALLS:
+        - SEQUENTIAL: Use when the output of one tool is needed as input for another tool
+        - PARALLEL: Use when multiple independent pieces of information are needed at once
+
+        For SEQUENTIAL dependencies (when tools depend on each other's results):
+        - Request ONE tool at a time using a single <tool_request> tag
+        - Wait for each result before requesting the next tool
+        - Use previous results to inform subsequent tool requests
+
+        For PARALLEL execution (when tools don't depend on each other):
+        - You may include MULTIPLE <tool_request> tags in one response
+        - Each tag should contain ONE specific tool instruction
+        - All parallel tools will execute before you receive any results
+
+        TO REQUEST TOOLS:
+        <tool_request>Clear instruction for exactly ONE tool call</tool_request>
+
+        EXAMPLES:
+
+        Example 1 - Sequential dependency (correct approach):
+        User: Find security vulnerabilities in my code and fix them.
+        Assistant: I'll first search for potential vulnerabilities.
+        <tool_request>Scan the codebase for security vulnerabilities.</tool_request>
+
+        [After receiving scan results]
+        Assistant: I found some vulnerabilities. Now I'll fix the most critical one.
+        <tool_request>Apply security patch to fix SQL injection in login.php.</tool_request>
+
+        Example 2 - Parallel execution (correct approach):
+        User: Summarize today's weather and news headlines.
+        Assistant: I'll gather both weather and news information for you.
+        <tool_request>Get today's weather forecast for the user's location.</tool_request>
+        <tool_request>Retrieve today's top news headlines.</tool_request>
+
+        Example 3 - Mixed approach:
+        User: Compare performance metrics across our three products and suggest improvements.
+        Assistant: I'll gather performance data for all products simultaneously.
+        <tool_request>Get performance metrics for Product A.</tool_request>
+        <tool_request>Get performance metrics for Product B.</tool_request>
+        <tool_request>Get performance metrics for Product C.</tool_request>
+
+        [After receiving all metrics]
+        Assistant: Now I'll analyze which product needs the most improvement.
+        <tool_request>Run detailed analysis on Product B's performance bottlenecks.</tool_request>
+
+        If no tool is needed, simply provide a direct answer without any <tool_request> tags."""
+
+
+        TOOL_REQUEST_INSTRUCTIONS_v2 = """You operate using the ReAct (Reasoning + Acting) methodology, with support for both sequential and parallel tool execution.
+
+        GENERAL PRINCIPLES:
+        1. First THINK about what information you need and which tools would provide it
+        2. Then REQUEST appropriate tools using JSON format
+        3. After receiving results, OBSERVE the outcomes
+        4. Then DECIDE whether to use more tools or provide a final answer
+
+        SEQUENTIAL VS PARALLEL TOOL CALLS:
+        - SEQUENTIAL: Use when the output of one tool is needed as input for another tool
+        - PARALLEL: Use when multiple independent pieces of information are needed at once
+
+        For SEQUENTIAL dependencies (when tools depend on each other's results):
+        - Request ONE tool at a time using a single JSON object
+        - Wait for each result before requesting the next tool
+        - Use previous results to inform subsequent tool requests
+
+        For PARALLEL execution (when tools don't depend on each other):
+        - Include MULTIPLE function calls in the tool_calls array
+        - Each function should contain ONE specific tool instruction
+        - All parallel tools will execute before you receive any results
+
+        TO REQUEST TOOLS, OUTPUT JSON IN THIS FORMAT:
+        <tool_request>
+        {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "tool_name",
+                        "arguments": {
+                            "param1": "value1",
+                            "param2": "value2"
+                        }
+                    }
+                }
+            ]
+        }
+        </tool_request>
+
+        -----
+
+        EXAMPLES:
+
+        Example 1 - Sequential dependency (correct approach):
+        User: Find security vulnerabilities in my code and fix them.
+        Assistant: 
+        <tool_request>
+        {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "scan_security_vulnerabilities",
+                        "arguments": {
+                            "target": "codebase"
+                        }
+                    }
+                }
+            ]
+        }
+        </tool_request>
+        [After receiving scan results]
+        Assistant:
+        <tool_request>
+        {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "apply_security_patch",
+                        "arguments": {
+                            "file": "login.php",
+                            "vulnerability_type": "sql_injection"
+                        }
+                    }
+                }
+            ]
+        }
+        </tool_request>
+        Example 2 - Parallel execution (correct approach):
+        User: Summarize today's weather and news headlines.
+        Assistant:
+        <tool_request>
+        {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "get_weather_forecast",
+                        "arguments": {
+                            "location": "user_location"
+                        }
+                    }
+                },
+                {
+                    "function": {
+                        "name": "get_news_headlines",
+                        "arguments": {
+                            "category": "top"
+                        }
+                    }
+                }
+            ]
+        }
+        </tool_request>
+        Example 3 - Mixed approach:
+        User: Compare performance metrics across our three products and suggest improvements.
+        Assistant:
+        <tool_request>
+        {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "get_performance_metrics",
+                        "arguments": {
+                            "product": "Product A"
+                        }
+                    }
+                },
+                {
+                    "function": {
+                        "name": "get_performance_metrics",
+                        "arguments": {
+                            "product": "Product B"
+                        }
+                    }
+                },
+                {
+                    "function": {
+                        "name": "get_performance_metrics",
+                        "arguments": {
+                            "product": "Product C"
+                        }
+                    }
+                }
+            ]
+        }
+        </tool_request>
+        [After receiving all metrics]
+        Assistant:
+        <tool_request>
+        {
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "analyze_performance_bottlenecks",
+                        "arguments": {
+                            "product": "Product B"
+                        }
+                    }
+                }
+            ]
+        }
+        </tool_request>
+        If no tool is needed, simply provide a direct answer without any JSON tool call format.
+        ------
+
+        IMPORTANT RULES:
+        1. ONLY use tool names from the list in the Available tools section - never invent new tool names
+        2. ONLY use parameter names that are listed for each tool - never invent new parameters
+        3. YOU CAN USE MULTIPLE TOOLS OR THE SAME TOOL MULTIPLE TIMES if the request requires it
+        4. If only one tool is needed, still use the proper array format with a single element
+        
+
+        """
+
+
+
+        if self.config.get('tool_calling.version') == 'v1':
+            return TOOL_REQUEST_INSTRUCTIONS_v1
+        elif self.config.get('tool_calling.version') == 'v2':
+            return TOOL_REQUEST_INSTRUCTIONS_v2
+        else:
+            raise ValueError(f"Unsupported tool calling version: {self.config.get('tool_calling.version')}")

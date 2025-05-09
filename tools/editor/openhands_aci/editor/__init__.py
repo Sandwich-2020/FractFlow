@@ -66,7 +66,7 @@ def file_editor(
                 yield ','
             first = False
             yield f'"{key}": {json.dumps(value)}'
-        yield f', "formatted_output_and_error": {json.dumps(formatted_output_and_error)}'
+        yield f', "formatted_output_and_error": {json.dumps(formatted_output_and_error, ensure_ascii=False).encode('utf8')}'
         yield '}'
 
     return (
