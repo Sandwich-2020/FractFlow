@@ -1049,9 +1049,9 @@ class ToolCallFactory:
         self.config = config
 
     def create_tool_call_helper(self):
-        if self.config.get('tool_calling.version') == 'v1':
+        if self.config.get('tool_calling.version') == 'stable':
             return ToolCallHelper_v1(self.config)
-        elif self.config.get('tool_calling.version') == 'v2':
+        elif self.config.get('tool_calling.version') == 'turbo':
             return ToolCallHelper_v2(self.config)
         else:
             raise ValueError(f"Unsupported tool calling version: {self.config.get('tool_calling.version')}")
@@ -1279,9 +1279,9 @@ class ToolCallFactory:
 
 
 
-        if self.config.get('tool_calling.version') == 'v1':
+        if self.config.get('tool_calling.version') == 'stable':
             return TOOL_REQUEST_INSTRUCTIONS_v1
-        elif self.config.get('tool_calling.version') == 'v2':
+        elif self.config.get('tool_calling.version') == 'turbo':
             return TOOL_REQUEST_INSTRUCTIONS_v2
         else:
             raise ValueError(f"Unsupported tool calling version: {self.config.get('tool_calling.version')}")
