@@ -34,6 +34,26 @@ from openhands_aci.utils.shell import run_shell_cmd
 # Initialize MCP server
 mcp = FastMCP("openhands_aci_tool")
 
+def normalize_path(path: str) -> str:
+    """
+    Normalize a file path by expanding ~ to user's home directory
+    and resolving relative paths.
+    
+    Parameters:
+        path (str): The input path to normalize
+        
+    Returns:
+        str: The normalized absolute path
+    """
+    # Expand ~ to user's home directory
+    expanded_path = os.path.expanduser(path)
+    
+    # Convert to absolute path if relative
+    if not os.path.isabs(expanded_path):
+        expanded_path = os.path.abspath(expanded_path)
+        
+    return expanded_path
+
 @mcp.tool()
 async def view_file(path: str, view_range: Optional[List[int]] = None):
     """
@@ -64,9 +84,10 @@ async def view_file(path: str, view_range: Optional[List[int]] = None):
         - Inspect file content: view the entire file
         - Examine specific text section: view a range of lines in any file
     """
+    normalized_path = normalize_path(path)
     result = file_editor(
         command="view",
-        path=path,
+        path=normalized_path,
         view_range=view_range,
     )
     return result
@@ -102,9 +123,10 @@ async def create_file(path: str, file_text: str, enable_linting: bool = False):
         - Create new script: create a new Python file with initial code
         - Generate configuration file: create JSON or YAML configuration
     """
+    normalized_path = normalize_path(path)
     result = file_editor(
         command="create",
-        path=path,
+        path=normalized_path,
         file_text=file_text,
         enable_linting=enable_linting,
     )
@@ -146,9 +168,10 @@ async def str_replace_in_file(path: str, old_str: str, new_str: str, enable_lint
         - Fix typo: replace misspelled variable name
         - Change configuration value: replace exact key-value pair
     """
+    normalized_path = normalize_path(path)
     result = file_editor(
         command="str_replace",
-        path=path,
+        path=normalized_path,
         old_str=old_str,
         new_str=new_str,
         enable_linting=enable_linting,
@@ -194,9 +217,10 @@ async def insert_in_file(path: str, insert_line: int, new_str: str, enable_linti
     # Adjust line number from 1-based (API) to 0-based (internal implementation)
     adjusted_line = insert_line - 1
     
+    normalized_path = normalize_path(path)
     result = file_editor(
         command="insert",
-        path=path,
+        path=normalized_path,
         insert_line=adjusted_line,
         new_str=new_str,
         enable_linting=enable_linting,
@@ -240,8 +264,9 @@ async def remove_lines_in_file(path: str, start_line: int, end_line: int = -1, e
         - Refactor: remove code blocks that have been moved elsewhere
     """
     try:
+        normalized_path = normalize_path(path)
         # Read the file directly
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(normalized_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
             original_content = ''.join(lines)
         
@@ -264,7 +289,7 @@ async def remove_lines_in_file(path: str, start_line: int, end_line: int = -1, e
         # Use str_replace to perform the edit
         result = file_editor(
             command="str_replace",
-            path=path,
+            path=normalized_path,
             old_str=original_content,
             new_str=new_content,
             enable_linting=enable_linting,
@@ -319,12 +344,13 @@ async def append_in_file(path: str, text_to_append: str, ensure_newline: bool = 
     import uuid
 
     try:
+        normalized_path = normalize_path(path)
         # Check if file exists
-        if not os.path.exists(path):
-            raise ValueError(f"File does not exist: {path}")
+        if not os.path.exists(normalized_path):
+            raise ValueError(f"File does not exist: {normalized_path}")
         
         # Read the file directly
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(normalized_path, 'r', encoding='utf-8') as f:
             original_content = f.read()
         
         # Prepare new content
@@ -338,14 +364,14 @@ async def append_in_file(path: str, text_to_append: str, ensure_newline: bool = 
         new_content += text_to_append
         
         # Write the modified content back to the file
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(normalized_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
         
         # Run linting if enabled
         lint_results = None
         if enable_linting:
             # Determine language based on file extension
-            _, ext = os.path.splitext(path)
+            _, ext = os.path.splitext(normalized_path)
             language_map = {
                 '.py': 'python',
                 '.js': 'javascript',
@@ -358,12 +384,12 @@ async def append_in_file(path: str, text_to_append: str, ensure_newline: bool = 
             
             if language:
                 linter = DefaultLinter()
-                lint_results = linter.run(path, language)
+                lint_results = linter.run(normalized_path, language)
         
         # Create result with unique identifier
         marker_id = str(uuid.uuid4())[:8]
         result = {
-            "path": path,
+            "path": normalized_path,
             "old_content": original_content,
             "new_content": new_content
         }
@@ -414,9 +440,10 @@ async def append_in_file(path: str, text_to_append: str, ensure_newline: bool = 
 #         - Revert accidental change: undo after making an incorrect modification
 #         - Cancel experiment: undo after testing a code change that didn't work
 #     """
+#     normalized_path = normalize_path(path)
 #     result = file_editor(
 #         command="undo_edit",
-#         path=path,
+#         path=normalized_path,
 #     )
 #     return result
 
@@ -527,15 +554,16 @@ async def execute_shell(cmd: str, timeout: float = 60.0):
 #     file_cache = FileCache(directory=directory)
     
 #     try:
+#         normalized_path = normalize_path(path)
 #         if content is None:
 #             # Read and cache the content from the file
-#             with open(path, 'r') as f:
+#             with open(normalized_path, 'r') as f:
 #                 content = f.read()
         
-#         file_cache.set(path, content)
+#         file_cache.set(normalized_path, content)
         
 #         return {
-#             "path": path,
+#             "path": normalized_path,
 #             "success": True
 #         }
 #     except Exception as e:
@@ -567,9 +595,10 @@ async def execute_shell(cmd: str, timeout: float = 60.0):
 #     file_cache = FileCache(directory=directory)
     
 #     try:
-#         content = file_cache.get(path)
+#         normalized_path = normalize_path(path)
+#         content = file_cache.get(normalized_path)
 #         return {
-#             "path": path,
+#             "path": normalized_path,
 #             "content": content,
 #             "success": True
 #         }

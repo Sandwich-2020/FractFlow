@@ -13,6 +13,7 @@ from typing import Dict, Any, Optional
 from PIL import Image
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
+import shutil
 load_dotenv()
 
 # Initialize FastMCP server
@@ -21,6 +22,26 @@ mcp = FastMCP("comfyui")
 server_address = "127.0.0.1:8188"
 # Set the ComfyUI path
 comfyui_path = "/Users/yingcongchen/Documents/code/ComfyUI"
+
+def normalize_path(path: str) -> str:
+    """
+    Normalize a file path by expanding ~ to user's home directory
+    and resolving relative paths.
+    
+    Args:
+        path: The input path to normalize
+        
+    Returns:
+        The normalized absolute path
+    """
+    # Expand ~ to user's home directory
+    expanded_path = os.path.expanduser(path)
+    
+    # Convert to absolute path if relative
+    if not os.path.isabs(expanded_path):
+        expanded_path = os.path.abspath(expanded_path)
+        
+    return expanded_path
 
 def queue_prompt(prompt, client_id):
     p = {"prompt": prompt, "client_id": client_id}
@@ -90,6 +111,7 @@ def encode_image(image_data, size=(512, 512)):
 
 @mcp.tool()
 async def generate_image_with_comfyui(
+    save_path: str,
     positive_prompt: str = "masterpiece best quality",
     negative_prompt: str = "bad hands",
     width: int = 512,
@@ -103,18 +125,36 @@ async def generate_image_with_comfyui(
     Generate an image using ComfyUI with the specified parameters
     
     Args:
+        save_path: Full path where the image will be saved (including filename if desired)
         positive_prompt: Positive text prompt for image generation （It should be English）
         negative_prompt: Negative text prompt for image generation （It should be English）
         width: Image width (default: 512)
         height: Image height (default: 512)
         seed: Seed for the generation (default: 0)
-        steps: Number of steps for sampling (default: 1)
-        cfg: CFG scale for guidance (default: 1)
-        checkpoint: Model checkpoint to use (default: "SDXL-TURBO/sd_xl_turbo_1.0_fp16.safetensors")
+        steps: Number of steps for sampling (default: 1) DON'T MODIFY THIS PARAMETER
+        cfg: CFG scale for guidance (default: 1) DON'T MODIFY THIS PARAMETER
+        checkpoint: Model checkpoint to use (default: "SDXL-TURBO/sd_xl_turbo_1.0_fp16.safetensors") DON'T MODIFY THIS PARAMETER
         
     Returns:
         Image file path as a string
     """
+    # Normalize the save path
+    save_path = normalize_path(save_path)
+    
+    # Check if save_path is a directory path or a file path
+    # If it has an extension, treat it as a file path
+    is_file_path = os.path.splitext(save_path)[1] != ''
+    
+    # If it's a directory path, make sure it exists
+    if not is_file_path:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path, exist_ok=True)
+    # If it's a file path, make sure its parent directory exists
+    else:
+        parent_dir = os.path.dirname(save_path)
+        if parent_dir and not os.path.exists(parent_dir):
+            os.makedirs(parent_dir, exist_ok=True)
+    
     # Create a workflow template
     prompt = {
         "3": {
@@ -214,11 +254,23 @@ async def generate_image_with_comfyui(
     try:
         images, image_paths = get_images(ws, prompt, client_id)
         
-        # Find the first image path and return it directly
+        # Find the first image path and copy it to the specified save_path
         for node_id in image_paths:
             if image_paths[node_id] and len(image_paths[node_id]) > 0:
-                # Return just the image path string
-                return image_paths[node_id][0]
+                source_path = image_paths[node_id][0]
+                
+                if is_file_path:
+                    # If save_path is a file path, use it directly
+                    destination_path = save_path
+                else:
+                    # If save_path is a directory, append the original filename
+                    filename = os.path.basename(source_path)
+                    destination_path = os.path.join(save_path, filename)
+                
+                shutil.copy2(source_path, destination_path)
+                
+                # Return the path to the copied file
+                return destination_path
                     
         return "No image generated"
     

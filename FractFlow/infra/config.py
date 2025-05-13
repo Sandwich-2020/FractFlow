@@ -70,6 +70,7 @@ class ConfigManager:
                 'max_retries': 5,                # Maximum number of retries for tool calls
                 'base_url': 'https://api.deepseek.com',
                 'model': 'deepseek-chat',
+                'version': 'stable', # stable: stable tool use. But use more token cost (depending on the tool call length), turbo: faster tool call. yet less stable.
             }
         }
     
