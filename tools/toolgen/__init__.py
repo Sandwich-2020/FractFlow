@@ -1,9 +1,11 @@
 """
 Tool Generator (toolgen)
 
-A package for generating FractFlow tool templates.
+Utility for generating FractFlow tools based on user-provided source code.
 """
 
-from .toolgen import generate_tool
+from .toolgen import generate_tool, main
+
+__all__ = ['generate_tool', 'main']
 
 __version__ = "0.1.0" 

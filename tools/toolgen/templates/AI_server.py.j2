@@ -14,9 +14,6 @@ import argparse
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 import os.path as osp
-# Add the project root directory to the Python path
-project_root = osp.abspath(osp.join(osp.dirname(__file__), '../..'))
-sys.path.append(project_root)
 
 # Import the FractFlow Agent
 from FractFlow.agent import Agent
@@ -26,26 +23,12 @@ from FractFlow.infra.logging_utils import setup_logging, get_logger
 # Setup logging
 setup_logging(level=logging.INFO)
 
+# Initialize FastMCP server
 mcp = FastMCP("{{ tool_name_snake }}_tool")
 
-
-# System prompt for the {{ tool_name_snake }} operations agent
+# System prompt for the agent
 SYSTEM_PROMPT = """
-You are a {{ tool_name }} Assistant specialized in helping users with {{ tool_name_snake }} operations.
-
-# Core Capabilities
-- [Describe the core capabilities of your tool here]
-- [For example: searching, processing, analyzing, etc.]
-
-# Key Workflows
-[Describe the key workflows for your tool here]
-
-Always choose the most efficient and appropriate tool for each task.
-Provide helpful and clear responses to the user.
-
-注意：
-1. 无论传入的query 有多长，你都必须确保把信息能完整地保存下来，不要省略、遗漏任何信息。
-2. 跟你交流的是LLM，不是人类，你做完之后，不需要提任何建议，只需要把是否顺利执行返回就行。
+{{ system_prompt }}
 """
 
 async def create_agent():
@@ -53,15 +36,17 @@ async def create_agent():
     load_dotenv()
     # Create a new agent
     agent = Agent('{{ tool_name_snake }}_assistant')
+    
+    # Configure the agent
     config = agent.get_config()
     config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
     config['agent']['provider'] = 'deepseek'
-    
-    # Set configuration
     config['deepseek']['model'] = 'deepseek-chat'
     config['agent']['max_iterations'] = 5
     config['agent']['custom_system_prompt'] = SYSTEM_PROMPT
     config['tool_calling']['version'] = 'turbo'
+    
+    # Apply configuration
     agent.set_config(config)
     
     # Add tools to the agent
@@ -70,36 +55,28 @@ async def create_agent():
     
     agent.add_tool(server_path, "{{ tool_name_snake }}_operations")
     
-    # Initialize the agent (starts up the tool servers)
+    # Initialize the agent
     print("Initializing agent...")
     await agent.initialize()
     
     return agent
 
 @mcp.tool()
-async def {{ tool_name_snake }}_operations(query: str) -> str:
+async def {{ tool_name_snake }}_tool(query: str) -> str:
     """
-    Performs intelligent {{ tool_name_snake }} operations based on natural language requests.
-    
-    Parameters:
-        query: str - Natural language description of the operation to perform
-               Examples: [Add examples specific to your tool]
-    
-    Notes:
-        - Automatically selects appropriate operations based on request
-        - Provides informative error messages and suggestions
-    
-    Returns:
-        str - Operation result or error message with guidance
-    
-    Examples:
-        [Add examples specific to your tool]
+    {{ tool_docstring }}
     """
+    # Create and initialize the agent
     agent = await create_agent()
-    result = await agent.process_query(query)
-    await agent.shutdown()
-    return result
+    
+    try:
+        # Process the query with the agent
+        result = await agent.process_query(query)
+        return result
+    finally:
+        # Ensure the agent is properly shut down
+        await agent.shutdown()
 
 if __name__ == "__main__":
-    # Run MCP server
+    # Run the MCP server
     mcp.run(transport='stdio') 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 {{ tool_name }} Tool Server Runner
 
@@ -10,9 +11,9 @@ The module supports loading either the direct MCP tools or the AI-enhanced versi
 
 Usage:
   python run_server.py                   # Interactive mode with direct MCP tools
-  python run_server.py --AI_server       # Interactive mode with AI server
-  python run_server.py --user_query "..."  # Single query with direct MCP tools
-  python run_server.py --AI_server --user_query "..."  # Single query with AI server
+  python run_server.py --ai              # Interactive mode with AI server
+  python run_server.py -q "..."          # Single query with direct MCP tools
+  python run_server.py --ai -q "..."     # Single query with AI server
 """
 
 import asyncio
@@ -21,24 +22,13 @@ import sys
 import logging
 import argparse
 from FractFlow.infra.logging_utils import setup_logging
-# Add the project root directory to the Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, '../..'))
-sys.path.append(project_root)
 
 # Import the FractFlow Agent
 from FractFlow.agent import Agent
 
+# System prompt for the AI-enhanced version
 SYSTEM_PROMPT = """
-You are a {{ tool_name }} Assistant that helps users with {{ tool_name_snake }} operations.
-
-# Core Capabilities
-[Describe the core capabilities of your tool here]
-
-# Usage Instructions
-[Provide usage instructions for your tool here]
-
-Always respond with helpful and accurate information.
+{{ run_server_system_prompt }}
 """
 
 async def create_agent(use_ai_server=False):
@@ -49,13 +39,14 @@ async def create_agent(use_ai_server=False):
     # Configure the agent
     config = agent.get_config()
     # You can customize the config here if needed
-    config['agent']['max_iterations'] = 20
+    config['agent']['max_iterations'] = 5
     config['agent']['custom_system_prompt'] = SYSTEM_PROMPT
     config['tool_calling']['version'] = 'turbo'
     agent.set_config(config)
     
     # Get the tool path based on the use_ai_server flag
-    tool_path = os.path.join(current_dir, "src/AI_server.py" if use_ai_server else "src/server.py")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    tool_path = os.path.join(current_dir, "AI_server.py" if use_ai_server else "server.py")
     
     # Add the appropriate tool to the agent
     print(f"Loading tool from: {tool_path}")
@@ -66,7 +57,6 @@ async def create_agent(use_ai_server=False):
     await agent.initialize()
     
     return agent
-
 
 async def interactive_mode(agent):
     """Interactive chat mode with multi-turn conversation support"""
@@ -82,7 +72,6 @@ async def interactive_mode(agent):
         result = await agent.process_query(user_input)
         print(f"Agent: {result}")
 
-
 async def single_query_mode(agent, query):
     """One-time execution mode for a single query"""
     print(f"Processing query: {query}")
@@ -91,26 +80,25 @@ async def single_query_mode(agent, query):
     print(f"Result: {result}")
     return result
 
-
 async def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Run {{ tool_name }} Tool Server')
-    parser.add_argument('--user_query', type=str, help='Single query mode: process this query and exit')
-    parser.add_argument('--AI_server', action='store_true', help='Use AI-enhanced server instead of direct MCP tools')
+    parser.add_argument('-q', '--query', type=str, help='Single query mode: process this query and exit')
+    parser.add_argument('--ai', action='store_true', help='Use AI-enhanced server instead of direct MCP tools')
     args = parser.parse_args()
     
     # Determine which server to use and display info
-    server_type = "AI-enhanced" if args.AI_server else "direct MCP"
-    mode_type = "single query" if args.user_query else "interactive"
+    server_type = "AI-enhanced" if args.ai else "direct MCP"
+    mode_type = "single query" if args.query else "interactive"
     print(f"Starting {{ tool_name }} Tool in {mode_type} mode using {server_type} tools.")
     
     # Create and initialize the agent
-    agent = await create_agent(use_ai_server=args.AI_server)
+    agent = await create_agent(use_ai_server=args.ai)
     
     try:
-        if args.user_query:
+        if args.query:
             # Single query mode
-            await single_query_mode(agent, args.user_query)
+            await single_query_mode(agent, args.query)
         else:
             # Interactive chat mode
             await interactive_mode(agent)
@@ -119,9 +107,8 @@ async def main():
         await agent.shutdown()
         print("\nAgent session ended.")
 
-
 if __name__ == "__main__":
     # Set basic logging
-    setup_logging(level=logging.INFO)
+    setup_logging(level=logging.DEBUG)
     # Run the async main function
     asyncio.run(main()) 
