@@ -141,7 +141,8 @@ async def create_image_with_gpt(
         # Generate image using GPT
         result = client.images.generate(
             model=model,
-            prompt=prompt
+            prompt=prompt, 
+            quality="low"
         )
         
         # Decode and save the generated image
