@@ -1,0 +1,51 @@
+"""
+Tests for {{ tool_name }} Operations
+
+This module contains tests for the {{ tool_name_snake }}_operations module.
+"""
+
+import os
+import sys
+import unittest
+from unittest.mock import patch, MagicMock
+
+# Add the src directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.abspath(os.path.join(current_dir, '../src'))
+sys.path.append(src_dir)
+
+# Import the module to test
+from {{ tool_name_snake }}_operations import example_operation
+
+
+class Test{{ tool_name_pascal }}Operations(unittest.TestCase):
+    """Test case for {{ tool_name_snake }}_operations module"""
+    
+    def setUp(self):
+        """Set up test fixtures"""
+        # Add any setup code here
+        pass
+    
+    def tearDown(self):
+        """Tear down test fixtures"""
+        # Add any teardown code here
+        pass
+    
+    def test_example_operation(self):
+        """Test the example_operation function"""
+        # Test with default parameters
+        result = example_operation("test")
+        self.assertTrue(result["success"])
+        self.assertIn("test", result["message"])
+        
+        # Test with custom parameters
+        result = example_operation("custom", 42)
+        self.assertTrue(result["success"])
+        self.assertIn("custom", result["message"])
+        self.assertIn("42", result["message"])
+
+    # TODO: Add more test methods for your actual operations
+
+
+if __name__ == '__main__':
+    unittest.main() 

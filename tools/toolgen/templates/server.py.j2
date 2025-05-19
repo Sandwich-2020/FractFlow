@@ -1,0 +1,91 @@
+from mcp.server.fastmcp import FastMCP
+import os
+import sys
+from typing import Union, List, Tuple, Dict, Any, Optional
+
+# 导入operations模块
+from {{ tool_name_snake }}_operations import (
+    # TODO: 在这里导入您在operations文件中实现的函数
+    example_operation,
+    # 添加更多函数导入
+)
+
+# 初始化MCP服务器
+mcp = FastMCP("{{ tool_name_snake }}_tool")
+
+@mcp.tool()
+async def example_tool(param1: str, param2: int = 0) -> dict:
+    """
+    示例工具函数，封装operations中的功能。
+    
+    Parameters:
+        param1: str - 参数1描述
+        param2: int - 参数2描述 (默认值: 0)
+    
+    Notes:
+        - 这里添加使用说明
+        - 限制条件或注意事项
+    
+    Returns:
+        dict: 包含以下键值的字典
+        - success: bool - 操作是否成功
+        - message: str - 结果描述或错误信息
+        - 其他特定于实现的键值
+    
+    Examples:
+        "示例用法1" → example_tool(param1="value1")
+        "示例用法2" → example_tool(param1="value2", param2=42)
+    """
+    # 调用operations中的实际实现
+    return example_operation(param1, param2)
+
+# TODO: 在这里添加更多工具函数，每个函数应该对应operations文件中的一个或多个操作
+# 示例:
+# @mcp.tool()
+# async def your_tool_function(your_param: str) -> dict:
+#     """您的工具函数描述"""
+#     return your_operation_function(your_param)
+
+# 用于复杂参数的schema示例（需要时取消注释并修改）
+"""
+@mcp.tool()
+async def complex_tool(data: dict) -> dict:
+    \"""
+    具有schema验证的复杂工具函数。
+    
+    Parameters:
+        data: dict - 符合下方schema定义的数据结构
+    
+    Returns:
+        dict: 操作结果
+    \"""
+    # 为该工具定义schema
+    complex_tool.params = {
+        "type": "object",
+        "properties": {
+            "field1": {
+                "type": "string",
+                "description": "字段1的描述"
+            },
+            "field2": {
+                "type": "number",
+                "description": "字段2的描述"
+            },
+            "options": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                },
+                "description": "选项列表"
+            }
+        },
+        "required": ["field1"]
+    }
+    
+    # 调用实现函数
+    return your_complex_operation(data)
+"""
+
+if __name__ == "__main__":
+    # 运行MCP服务器
+    mcp.run(transport='stdio') 

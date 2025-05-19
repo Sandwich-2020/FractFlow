@@ -96,11 +96,11 @@ async def create_agent():
     
     # Add tools to the agent
 
-    # Get the current directory path
+    # # Get the current directory path
     current_dir = os.path.dirname(os.path.abspath(__file__))
     server_path = os.path.join(current_dir, "server.py")
     
-    agent.add_tool(server_path, "web_search")
+    agent.add_tool(server_path, "file_operations")
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
     await agent.initialize()

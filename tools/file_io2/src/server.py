@@ -3,12 +3,12 @@ import os
 import sys
 from typing import Union, List, Tuple
 
-# 添加当前目录到Python路径，解决相对导入问题
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
+# # 添加当前目录到Python路径，解决相对导入问题
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# if current_dir not in sys.path:
+#     sys.path.append(current_dir)
 
-from src.file_operations import (
+from file_operations import (
     check_file_exists,
     get_file_line_count,
     read_file_range,

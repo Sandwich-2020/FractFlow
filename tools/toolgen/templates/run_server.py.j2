@@ -1,7 +1,7 @@
 """
-File I/O Tool Server Runner
+{{ tool_name }} Tool Server Runner
 
-This module provides the entry point for starting the File I/O Tool server.
+This module provides the entry point for starting the {{ tool_name }} Tool server.
 It can be run in two modes:
 1. Interactive chat mode - continuous processing of user queries until exit
 2. Single query mode - processing a single query and then exiting
@@ -30,19 +30,21 @@ sys.path.append(project_root)
 from FractFlow.agent import Agent
 
 SYSTEM_PROMPT = """
-你是一个长篇小说作家。
+You are a {{ tool_name }} Assistant that helps users with {{ tool_name_snake }} operations.
 
-你可以先用比较短的语言规划每一章大纲（不直接写入文件），然后通过调用tool，让子agent 把直接一整章的小说写入文件里面。
+# Core Capabilities
+[Describe the core capabilities of your tool here]
 
-每一章小说都不少于5000字。如果你一次性写不进去，可以分多次写。
+# Usage Instructions
+[Provide usage instructions for your tool here]
 
-
+Always respond with helpful and accurate information.
 """
 
 async def create_agent(use_ai_server=False):
     """Create and initialize the Agent with appropriate tools"""
     # Create a new agent
-    agent = Agent('file_io_agent')
+    agent = Agent('{{ tool_name_snake }}_agent')
     
     # Configure the agent
     config = agent.get_config()
@@ -57,7 +59,7 @@ async def create_agent(use_ai_server=False):
     
     # Add the appropriate tool to the agent
     print(f"Loading tool from: {tool_path}")
-    agent.add_tool(tool_path, 'file_io')
+    agent.add_tool(tool_path, '{{ tool_name_snake }}')
     
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
@@ -68,7 +70,7 @@ async def create_agent(use_ai_server=False):
 
 async def interactive_mode(agent):
     """Interactive chat mode with multi-turn conversation support"""
-    print("\nFile I/O Tool Interactive Mode")
+    print("\n{{ tool_name }} Tool Interactive Mode")
     print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
     
     while True:
@@ -92,7 +94,7 @@ async def single_query_mode(agent, query):
 
 async def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Run File I/O Tool Server')
+    parser = argparse.ArgumentParser(description='Run {{ tool_name }} Tool Server')
     parser.add_argument('--user_query', type=str, help='Single query mode: process this query and exit')
     parser.add_argument('--AI_server', action='store_true', help='Use AI-enhanced server instead of direct MCP tools')
     args = parser.parse_args()
@@ -100,7 +102,7 @@ async def main():
     # Determine which server to use and display info
     server_type = "AI-enhanced" if args.AI_server else "direct MCP"
     mode_type = "single query" if args.user_query else "interactive"
-    print(f"Starting File I/O Tool in {mode_type} mode using {server_type} tools.")
+    print(f"Starting {{ tool_name }} Tool in {mode_type} mode using {server_type} tools.")
     
     # Create and initialize the agent
     agent = await create_agent(use_ai_server=args.AI_server)
@@ -120,6 +122,6 @@ async def main():
 
 if __name__ == "__main__":
     # Set basic logging
-    setup_logging(level=logging.DEBUG)
+    setup_logging(level=logging.INFO)
     # Run the async main function
     asyncio.run(main()) 
