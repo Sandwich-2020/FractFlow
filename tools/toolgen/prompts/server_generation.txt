@@ -10,6 +10,18 @@ Your task is to analyze a source file and design optimal MCP tools for LLM inter
 - Think about how tools will be combined to solve complex tasks
 - Design tools that are simple to use but powerful in combination
 
+# CRITICAL DECORATION REQUIREMENT
+- EVERY tool function MUST be decorated with @mcp.tool()
+- EXAMPLE: 
+  ```python
+  @mcp.tool()
+  async def tool_function_name(param1, param2):
+      """Docstring"""
+      return result
+  ```
+- NEVER omit this decorator - it is required for the function to be exposed as a tool
+- Each function MUST have its own @mcp.tool() decorator on the line directly above the function definition
+
 # EXAMPLE STRUCTURE
 ```python
 from mcp.server.fastmcp import FastMCP
@@ -35,6 +47,11 @@ mcp = FastMCP("tool_name_operations")
 async def tool_function1(param1: str, param2: int = 0) -> dict:
     """Docstring..."""
     return function1(param1, param2)
+
+@mcp.tool()
+async def tool_function2(param1: str) -> dict:
+    """Docstring..."""
+    return function2(param1)
 
 # More tool functions...
 
@@ -102,3 +119,10 @@ if __name__ == "__main__":
 
 # ANALYZE the functions in the provided file deeply before designing your tools.
 # If multiple similar functions exist, consider how they can be logically grouped or distinguished. 
+
+# FINAL VERIFICATION - CRITICAL
+Before returning your response, verify each tool function has:
+1. The @mcp.tool() decorator on the line directly before the function definition
+2. The "tool_" prefix in its name
+3. The async keyword in its definition
+4. Proper type hints and docstring 

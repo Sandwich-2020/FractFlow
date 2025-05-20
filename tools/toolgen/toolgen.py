@@ -41,8 +41,16 @@ class ToolgenAgent:
         """Initialize the ToolgenAgent."""
         self.agent = None
         self.prompt_types = {
+            # Original prompts
             "server_generation": self._load_prompt("server_generation.txt"),
-            "ai_server_generation": self._load_prompt("ai_server_generation.txt")
+            "ai_server_generation": self._load_prompt("ai_server_generation.txt"),
+            
+            # New specialized prompts (will need to be created)
+            "function_extraction": self._load_prompt_or_fallback("function_extraction.txt", "server_generation.txt"),
+            "tool_info_inference": self._load_prompt_or_fallback("tool_info_inference.txt", "server_generation.txt"),
+            "system_prompt_generation": self._load_prompt_or_fallback("system_prompt_generation.txt", "ai_server_generation.txt"),
+            "tool_docstring_generation": self._load_prompt_or_fallback("tool_docstring_generation.txt", "ai_server_generation.txt"),
+            "run_server_prompt_generation": self._load_prompt_or_fallback("run_server_prompt_generation.txt", "ai_server_generation.txt")
         }
     
     def _load_prompt(self, prompt_name: str) -> str:
@@ -50,6 +58,19 @@ class ToolgenAgent:
         prompt_path = os.path.join(PROMPT_DIR, prompt_name)
         with open(prompt_path, 'r', encoding='utf-8') as f:
             return f.read()
+    
+    def _load_prompt_or_fallback(self, primary_prompt_name: str, fallback_prompt_name: str) -> str:
+        """
+        Load a prompt template, falling back to another if the primary doesn't exist.
+        This allows gradual addition of specialized prompts while maintaining compatibility.
+        """
+        primary_path = os.path.join(PROMPT_DIR, primary_prompt_name)
+        
+        if os.path.exists(primary_path):
+            return self._load_prompt(primary_prompt_name)
+        else:
+            logger.info(f"Specialized prompt {primary_prompt_name} not found, falling back to {fallback_prompt_name}")
+            return self._load_prompt(fallback_prompt_name)
     
     async def create_agent(self, prompt_type: str) -> None:
         """
@@ -131,6 +152,12 @@ class ToolgenAgent:
         Returns:
             List of function names
         """
+        # Create agent with specialized prompt if not already created
+        if not self.agent or self.agent.get_config()['agent']['custom_system_prompt'] != self.prompt_types["function_extraction"]:
+            if self.agent:
+                await self.shutdown()
+            await self.create_agent("function_extraction")
+            
         query = f"""
         深入分析以下源代码，确定应该作为工具暴露的函数:
         
@@ -194,6 +221,7 @@ class ToolgenAgent:
         3. 可以基于原始函数创建新的工具函数，如果这样能提高使用体验
         4. 提供详细的文档，帮助大语言模型理解如何使用这些工具
         5. 重要：源文件 {source_module}.py 和生成的server.py位于同一目录下
+        6. 关键: 每个工具函数必须使用 @mcp.tool() 装饰器修饰
 
         请实现两部分代码：
 
@@ -206,6 +234,7 @@ class ToolgenAgent:
            - 所有工具函数的完整实现
            - 详细的文档字符串
            - 必要的类型提示
+           - 每个函数前必须添加 @mcp.tool() 装饰器
 
         请先思考最佳设计方案，再实现代码。返回完整的导入部分和工具定义部分，不要包括初始化FastMCP或运行服务器的代码。
         """
@@ -215,6 +244,9 @@ class ToolgenAgent:
         
         # Split the code into import section and tool definitions
         import_section, tool_definitions = self._split_code(full_code)
+        
+        # Verify and fix missing @mcp.tool() decorators
+        tool_definitions = self._ensure_tool_decorators(tool_definitions)
         
         # Extract tool names from generated code
         tool_names = set(re.findall(r'async\s+def\s+([a-zA-Z0-9_]+)\s*\(', tool_definitions))
@@ -249,6 +281,36 @@ class ToolgenAgent:
         # If we can't split, return the whole code as tool definitions
         return "", code
     
+    def _ensure_tool_decorators(self, code: str) -> str:
+        """
+        Ensures that all async def tool_* functions have @mcp.tool() decorators.
+        
+        Args:
+            code: Code string containing tool definitions
+            
+        Returns:
+            Code with @mcp.tool() decorators added where needed
+        """
+        lines = code.split('\n')
+        result = []
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i]
+            
+            # Check if this line defines a tool function
+            if re.match(r'^\s*async\s+def\s+tool_', line):
+                # Check if the previous line has a decorator
+                if i == 0 or not re.match(r'^\s*@mcp\.tool\(\)\s*$', lines[i-1]):
+                    # Add the decorator
+                    indentation = re.match(r'^\s*', line).group(0)
+                    result.append(f"{indentation}@mcp.tool()")
+                
+            result.append(line)
+            i += 1
+            
+        return '\n'.join(result)
+    
     async def generate_component(self, source_code: str, tool_name: str, component_type: str) -> str:
         """
         Generic function to generate different components for the tool.
@@ -262,6 +324,21 @@ class ToolgenAgent:
         Returns:
             Generated component text
         """
+        # Map component types to prompt types
+        prompt_type_mapping = {
+            'system_prompt': 'system_prompt_generation',
+            'tool_docstring': 'tool_docstring_generation',
+            'run_server_prompt': 'run_server_prompt_generation'
+        }
+        
+        # Create agent with specialized prompt if needed
+        if component_type in prompt_type_mapping:
+            specialized_prompt_type = prompt_type_mapping[component_type]
+            if not self.agent or self.agent.get_config()['agent']['custom_system_prompt'] != self.prompt_types[specialized_prompt_type]:
+                if self.agent:
+                    await self.shutdown()
+                await self.create_agent(specialized_prompt_type)
+        
         prompts = {
             'system_prompt': f"""
                 分析源代码和已优化的工具设计，为 {tool_name} 创建一个高效的系统提示:
@@ -380,6 +457,12 @@ class ToolgenAgent:
         Returns:
             Dictionary with inferred tool name and description
         """
+        # Create agent with specialized prompt if not already created
+        if not self.agent or self.agent.get_config()['agent']['custom_system_prompt'] != self.prompt_types["tool_info_inference"]:
+            if self.agent:
+                await self.shutdown()
+            await self.create_agent("tool_info_inference")
+            
         query = f"""
         分析以下源代码，推断最合适的工具名称和简短描述:
         
@@ -499,8 +582,8 @@ async def generate_tool_components(source_path: str, tool_name: str, description
     agent = ToolgenAgent()
     
     try:
-        # Generate server components
-        await agent.create_agent("server_generation")
+        # Generate server components using specialized function extraction prompt
+        logger.info("Generating server components with specialized prompt...")
         server_components = await agent.generate_server_components(source_code, source_module)
         context.update(server_components)
         
@@ -510,11 +593,8 @@ async def generate_tool_components(source_path: str, tool_name: str, description
             tools_code = server_components["available_tools"]
             tool_names = [line.split('"- ')[1].split('"')[0] for line in tools_code.split("\n") if '"- ' in line]
         
-        # Switch agent to AI server generation
-        await agent.shutdown()
-        await agent.create_agent("ai_server_generation")
-        
-        # Generate AI server and run server components concurrently
+        # Generate AI server and run server components concurrently with specialized prompts
+        logger.info("Generating AI and run server components with specialized prompts...")
         ai_components, run_components = await asyncio.gather(
             agent.generate_ai_server_components(source_code, tool_name),
             agent.generate_run_server_components(source_code, tool_name)
@@ -593,8 +673,8 @@ def main():
         loop = asyncio.get_event_loop()
         
         try:
-            # Initialize agent and infer tool info
-            loop.run_until_complete(agent.create_agent("server_generation"))
+            # Initialize agent with specialized prompt for tool info inference
+            print("Inferring tool name and description from source code...")
             inferred_info = loop.run_until_complete(agent.infer_tool_info(source_code))
             tool_name = inferred_info["tool_name"]
             description = inferred_info["description"]
