@@ -22,26 +22,27 @@ Your task is to analyze a source file and design optimal MCP tools for LLM inter
 - NEVER omit this decorator - it is required for the function to be exposed as a tool
 - Each function MUST have its own @mcp.tool() decorator on the line directly above the function definition
 
-# EXAMPLE STRUCTURE
+# TEMPLATE CONTEXT
+The generated code will be inserted into a template that already provides:
+- Standard library imports (os, sys, typing)
+- MCP framework imports (mcp.server.fastmcp)
+- Python path setup for local imports
+- FastMCP server initialization
+- Main execution block
+
+# YOUR TASK: Generate ONLY source-specific imports and tool functions
+
+# EXAMPLE STRUCTURE (what you should generate)
 ```python
-from mcp.server.fastmcp import FastMCP
-import os
-import sys
-from typing import Optional, Dict, Any, List
-
-# Add current directory to Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
-
-# Import from source module
+# Source-specific imports only
 from [source_module] import (
     function1,
     function2,
     ...
 )
-
-# Initialize FastMCP server
-mcp = FastMCP("tool_name_operations")
+# Any third-party libraries required by source code
+import numpy as np  # example if source uses numpy
+import requests     # example if source uses requests
 
 @mcp.tool()
 async def tool_function1(param1: str, param2: int = 0) -> dict:
@@ -54,10 +55,19 @@ async def tool_function2(param1: str) -> dict:
     return function2(param1)
 
 # More tool functions...
-
-if __name__ == "__main__":
-    mcp.run(transport='stdio')
 ```
+
+# CRITICAL: DO NOT INCLUDE
+- import os, sys, typing, asyncio
+- from mcp.server.fastmcp import FastMCP
+- FastMCP server initialization
+- if __name__ == "__main__" block
+- Python path manipulation code
+
+# IMPORT REQUIREMENTS
+- Use absolute imports only (e.g., "from module_name import function")
+- DO NOT use relative imports (e.g., "from .module_name import function")
+- Since the source file and server.py are in the same directory, import directly by module name
 
 # NAMING CONVENTION
 - All MCP tool functions MUST have a "tool_" prefix added to the function name

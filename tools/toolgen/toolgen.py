@@ -170,6 +170,7 @@ class ToolgenAgent:
         2. 工具名称和功能应该容易被大语言模型理解
         3. 工具接口应该清晰，避免歧义
         4. 可能需要将现有函数分解、组合或重新命名以创建更合理的工具
+        5. 请从用户角度考虑，不一定所有函数都要暴露为工具，请根据实际情况决定
         
         返回一个逗号分隔的函数名列表，这些函数应该在 server.py 中实现。
         如果建议创建新的工具函数，请提供建议的新函数名和说明。
@@ -225,25 +226,34 @@ class ToolgenAgent:
 
         请实现两部分代码：
 
-        1. 完整的导入部分，包括：
-           - 正确导入所有必要的模块和库
+        1. 源码特定导入部分（注意：基础导入如 os, sys, typing, mcp 等已在模板中提供，请勿重复）：
            - 从同目录下的 {source_module}.py 文件导入所需的函数
-           - 根据源代码分析，添加任何其他必要的导入
+           - 根据源代码分析，添加源码依赖的第三方库导入
+           - 仅包含源码特定的导入，不要包含标准库或 MCP 框架的导入
 
-        2. 工具函数定义部分，包括：
+        2. 工具函数定义部分：
            - 所有工具函数的完整实现
            - 详细的文档字符串
            - 必要的类型提示
            - 每个函数前必须添加 @mcp.tool() 装饰器
 
-        请先思考最佳设计方案，再实现代码。返回完整的导入部分和工具定义部分，不要包括初始化FastMCP或运行服务器的代码。
+        重要提醒：
+        - 不要导入 os, sys, typing, mcp.server.fastmcp 等，这些已在模板中提供
+        - 只导入源码特定的模块和函数
+        - 使用绝对导入，不要使用相对导入（如 from .module import）
+        - 由于源文件和server.py在同一目录，直接使用模块名导入（如 from {source_module} import）
+
+        请先思考最佳设计方案，再实现代码。返回源码特定导入部分和工具定义部分，不要包括基础导入、初始化FastMCP或运行服务器的代码。
         """
         
         response = await self._query_agent(query)
         full_code = self._extract_code_from_response(response)
         
-        # Split the code into import section and tool definitions
-        import_section, tool_definitions = self._split_code(full_code)
+        # Split the code into source imports and tool definitions
+        source_imports, tool_definitions = self._split_code(full_code)
+        
+        # Clean up source imports to remove any basic imports that might have slipped through
+        source_imports = self._clean_source_imports(source_imports)
         
         # Verify and fix missing @mcp.tool() decorators
         tool_definitions = self._ensure_tool_decorators(tool_definitions)
@@ -255,13 +265,13 @@ class ToolgenAgent:
         available_tools = '\n        '.join([f'print("- {name}")' for name in sorted(tool_names)])
         
         return {
-            "import_section": import_section,
+            "source_imports": source_imports,
             "tool_definitions": tool_definitions,
             "available_tools": available_tools
         }
     
     def _split_code(self, code: str) -> Tuple[str, str]:
-        """Split code into import section and function definitions."""
+        """Split code into source imports and function definitions."""
         # Try using regex to split
         import_pattern = r'^(.*?)(?=@mcp\.tool\(\)|async\s+def\s+tool_)'
         tool_pattern = r'(@mcp\.tool\(\).*$)'
@@ -280,6 +290,60 @@ class ToolgenAgent:
         
         # If we can't split, return the whole code as tool definitions
         return "", code
+    
+    def _clean_source_imports(self, imports: str) -> str:
+        """
+        Clean source imports to remove basic imports that should be in template.
+        
+        Args:
+            imports: Raw import section from agent response
+            
+        Returns:
+            Cleaned imports with basic imports removed
+        """
+        if not imports.strip():
+            return imports
+            
+        # List of basic imports that should not be in source_imports
+        basic_imports = {
+            'import os',
+            'import sys', 
+            'from typing import',
+            'from mcp.server.fastmcp import FastMCP',
+            'from mcp import',
+            'import typing',
+            'import asyncio',  # Usually provided in template context
+        }
+        
+        lines = imports.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Skip empty lines and comments
+            if not line_stripped or line_stripped.startswith('#'):
+                cleaned_lines.append(line)
+                continue
+                
+            # Check if this line contains any basic import
+            is_basic_import = False
+            for basic_import in basic_imports:
+                if line_stripped.startswith(basic_import):
+                    is_basic_import = True
+                    break
+                    
+            # Only keep non-basic imports
+            if not is_basic_import:
+                cleaned_lines.append(line)
+        
+        # Remove leading/trailing empty lines
+        while cleaned_lines and not cleaned_lines[0].strip():
+            cleaned_lines.pop(0)
+        while cleaned_lines and not cleaned_lines[-1].strip():
+            cleaned_lines.pop()
+            
+        return '\n'.join(cleaned_lines)
     
     def _ensure_tool_decorators(self, code: str) -> str:
         """
