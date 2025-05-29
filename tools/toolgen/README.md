@@ -1,107 +1,140 @@
-# Tool Generator (toolgen)
+# ToolGen - AI-Powered Tool Generator
 
-一个用于快速生成FractFlow工具模板的工具，帮助用户专注于功能实现而不是模板代码。
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-## 功能特点
+ToolGen is an intelligent code analysis and tool generation utility that automatically creates MCP (Model Context Protocol) tools from your existing Python source code. It leverages AI agents to understand your code structure and generate production-ready tool implementations with both direct function access and AI-enhanced capabilities.
 
-- 自动生成完整的工具项目结构
-- 创建所有必要的模板文件
-- 用户只需要实现核心功能代码
-- 模板包含详细的注释和TODOs，指导用户正确实现
-- 提供完整的单元测试和集成测试模板
+## Features
 
-## 安装
+### 🤖 AI-Powered Analysis
+- **Intelligent Function Detection**: Automatically identifies functions that should be exposed as tools
+- **Code Understanding**: Analyzes code structure, dependencies, and interfaces
+- **Smart Recommendations**: Suggests tool names, descriptions, and optimal interfaces
 
-确保您已安装jinja2：
+### 🛠️ Multi-Mode Tool Generation
+- **Direct Tools** (`server.py`): Standard MCP tools for direct function access
+- **AI-Enhanced Tools** (`AI_server.py`): FractFlow Agent-powered tools with natural language processing
+- **Interactive Runner** (`run_server.py`): Command-line interface for testing and interaction
+
+### 📝 Template-Driven Generation
+- **Jinja2 Templates**: Flexible template system for customizable output
+- **Multiple Formats**: Generates servers, tests, documentation, and configuration files
+- **Extensible**: Easy to add new templates and output formats
+
+### 🔧 Advanced Code Processing
+- **Import Management**: Intelligent handling of dependencies and imports
+- **Decorator Application**: Automatic addition of required MCP decorators
+- **Code Optimization**: Cleans and optimizes generated code for production use
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Required API keys for AI providers (DeepSeek or Qwen)
+
+### Dependencies
 
 ```bash
-pip install jinja2
+pip install jinja2 python-dotenv
+# Plus FractFlow dependencies for AI-enhanced features
 ```
 
-## 使用方法
+### Environment Setup
 
-### 命令行方式
+Create a `.env` file with your API credentials:
+
+```env
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+QWEN_API_KEY=your_qwen_api_key_here  # Fallback option
+```
+
+## Quick Start
+
+### Basic Usage
 
 ```bash
-# 基本用法
-python -m tools.toolgen.cli target_path --name "Tool Name" --description "Tool description"
-
-# 示例
-python -m tools.toolgen.cli tools/my_new_tool --name "Weather Forecast" --description "A tool for retrieving weather forecasts"
+# Generate tools from your source code
+python toolgen.py /path/to/your/source_file.py
 ```
 
-### 在代码中使用
+This will analyze your source file and generate:
+- `server.py` - Direct MCP tools
+- `AI_server.py` - AI-enhanced tools with FractFlow Agent
+- `run_server.py` - Interactive runner script
+
+### Example Workflow
+
+1. **Prepare your source code**:
+```python
+# my_functions.py
+def process_data(data: str) -> dict:
+    """Process input data and return structured results."""
+    return {"processed": data.upper(), "length": len(data)}
+
+def analyze_text(text: str, mode: str = "basic") -> dict:
+    """Analyze text content with different analysis modes."""
+    # Your implementation here
+    pass
+```
+
+2. **Generate tools**:
+```bash
+python toolgen.py my_functions.py
+```
+
+3. **Use the generated tools**:
+```bash
+# Direct tool access
+python run_server.py
+
+# AI-enhanced mode
+python run_server.py --ai
+
+# Single query mode
+python run_server.py -q "Process this data: hello world"
+```
+
+### Agent Configuration
+
+The generated agents use the following default configuration:
 
 ```python
-from tools.toolgen import generate_tool
-
-generate_tool(
-    target_path="tools/my_new_tool",
-    tool_name="Weather Forecast",
-    description="A tool for retrieving weather forecasts"
-)
+config = {
+    'agent': {
+        'provider': 'deepseek',
+        'max_iterations': 5
+    },
+    'deepseek': {
+        'model': 'deepseek-chat'
+    },
+    'tool_calling': {
+        'version': 'turbo'
+    }
+}
 ```
 
-## 生成的项目结构
+## Output Structure
+
+After running ToolGen, you'll get the following structure:
 
 ```
-target_path/
-│
-├── src/
-│   ├── __init__.py
-│   ├── AI_server.py
-│   ├── server.py
-│   └── tool_name_operations.py  # 用户需要实现的文件
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_tool_name_unit.py      # 单元测试
-│   └── test_tool_name_integration.py  # 集成测试
-│
-├── docs/
-│   └── User-Intention.md
-│
-├── run_server.py
-└── requirements.txt
+your_project/
+├── source_file.py          # Your original source code
+├── server.py               # Generated MCP tool server
+├── AI_server.py           # Generated AI-enhanced server
+├── run_server.py          # Interactive runner script
+└── (optional test files)  # If test templates are used
 ```
 
-## 测试功能
+## ⚠️ Important Notice
 
-工具生成器提供两种类型的测试模板：
+**ToolGen is an AI-assisted code generation tool that provides a starting point, not a final solution.** 
 
-1. **单元测试**：针对核心功能代码的测试，直接测试operations文件中的函数
-2. **集成测试**：通过subprocess调用run_server.py，测试整个系统在实际环境中的表现
+### Manual Review and Adjustment Required
 
-### 运行测试
+The generated code will likely need manual refinement and adjustments:
 
-```bash
-# 运行单元测试
-cd target_path
-python -m unittest tests/test_tool_name_unit.py
+- **Server Function Abstractions** (`server.py`)
 
-# 运行集成测试
-python -m unittest tests/test_tool_name_integration.py
-
-# 运行所有测试
-python -m unittest discover tests
-```
-
-## 工作流程
-
-1. 使用toolgen生成工具模板
-2. 在`src/tool_name_operations.py`中实现核心功能
-3. 在`src/server.py`中修改导入并添加API端点
-4. 根据功能需求更新单元测试和集成测试
-5. 根据需要自定义`AI_server.py`中的系统提示和配置
-6. 运行`run_server.py`启动您的工具
-
-## 注意事项
-
-- 不要修改模板文件的基本结构
-- 遵循注释中的TODO指示
-- 保持operations文件中的函数签名与server.py中的API一致
-- 测试文件可以根据您的具体功能需求扩展
-
-## 贡献
-
-欢迎提交问题报告和改进建议! 
+- **System Prompts** (`AI_server.py` and `run_server.py`)

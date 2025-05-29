@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-File Line Manager Tool Server Runner
+File Manipulator Tool Server Runner
 
-This module provides the entry point for starting the File Line Manager Tool server.
+This module provides the entry point for starting the File Manipulator Tool server.
 It can be run in two modes:
 1. Interactive chat mode - continuous processing of user queries until exit
 2. Single query mode - processing a single query and then exiting
@@ -28,29 +28,30 @@ from FractFlow.agent import Agent
 
 # System prompt for the AI-enhanced version
 SYSTEM_PROMPT = """
-File Line Manager provides tools for reading, writing, and modifying text files with line-level precision. Key capabilities include:
+File Manipulator provides basic file operations for reading, writing, and modifying text files.  
 
-- Check file existence and line counts
-- Read specific line ranges or chunks
-- Insert/append/delete lines
-- Create or overwrite files
+Key capabilities:  
+- Check file existence  
+- Read file content (full, range, or chunks)  
+- Write/create files  
+- Append/insert/delete lines  
 
-Basic usage:
-- Specify file paths clearly
-- Line numbers are 1-indexed
-- Check file existence before operations
-- Handle large files in chunks when needed
+Basic usage:  
+- Use check_file_exists before operations  
+- Specify absolute paths when possible  
+- Line numbers are 1-indexed  
+- Handle errors from returned status objects  
 
-Limitations:
-- Works only with text files
-- No concurrent access handling
-- Large files may impact performance
+Limitations:  
+- Only works with text files  
+- No directory operations  
+- No file permissions management
 """
 
 async def create_agent(use_ai_server=False):
     """Create and initialize the Agent with appropriate tools"""
     # Create a new agent
-    agent = Agent('file_line_manager_agent')
+    agent = Agent('file_manipulator_agent')
     
     # Configure the agent
     config = agent.get_config()
@@ -66,7 +67,7 @@ async def create_agent(use_ai_server=False):
     
     # Add the appropriate tool to the agent
     print(f"Loading tool from: {tool_path}")
-    agent.add_tool(tool_path, 'file_line_manager')
+    agent.add_tool(tool_path, 'file_manipulator')
     
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
@@ -76,7 +77,7 @@ async def create_agent(use_ai_server=False):
 
 async def interactive_mode(agent):
     """Interactive chat mode with multi-turn conversation support"""
-    print("\nFile Line Manager Tool Interactive Mode")
+    print("\nFile Manipulator Tool Interactive Mode")
     print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
     
     while True:
@@ -98,7 +99,7 @@ async def single_query_mode(agent, query):
 
 async def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Run File Line Manager Tool Server')
+    parser = argparse.ArgumentParser(description='Run File Manipulator Tool Server')
     parser.add_argument('-q', '--query', type=str, help='Single query mode: process this query and exit')
     parser.add_argument('--ai', action='store_true', help='Use AI-enhanced server instead of direct MCP tools')
     args = parser.parse_args()
@@ -106,7 +107,7 @@ async def main():
     # Determine which server to use and display info
     server_type = "AI-enhanced" if args.ai else "direct MCP"
     mode_type = "single query" if args.query else "interactive"
-    print(f"Starting File Line Manager Tool in {mode_type} mode using {server_type} tools.")
+    print(f"Starting File Manipulator Tool in {mode_type} mode using {server_type} tools.")
     
     # Create and initialize the agent
     agent = await create_agent(use_ai_server=args.ai)

@@ -1,23 +1,25 @@
 """
-File Line Manager Tool Server
+File Manipulator Tool Server
 
-This module provides direct MCP tool implementations for the File Line Manager tool.
+This module provides direct MCP tool implementations for the File Manipulator tool.
 These functions are designed to be exposed as MCP tools and used by the AI server.
 """
 
+# Standard library imports
 import os
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+
+# MCP framework imports
 from mcp.server.fastmcp import FastMCP
 
+# Add current directory to Python path for local imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
 
-
-# Initialize FastMCP server
-mcp = FastMCP("file_line_manager")
-
-# ===== IMPORTS SECTION =====
-import os
-from typing import Dict, List, Optional, Union
+# Source-specific imports (generated based on source code analysis)
+# 1. 源码特定导入部分
 from file_operations import (
     normalize_path,
     check_file_exists,
@@ -31,22 +33,38 @@ from file_operations import (
     delete_line
 )
 
+# 2. 工具函数定义部分
 
-# ===== TOOL FUNCTIONS SECTION =====
+# Initialize FastMCP server
+mcp = FastMCP("file_manipulator")
+
+@mcp.tool()
+def tool_normalize_path(file_path: str) -> str:
+    """
+    Normalizes a file path to prevent path traversal attacks and returns the absolute path.
+    
+    Args:
+        file_path (str): The file path to normalize
+        
+    Returns:
+        str: Normalized absolute file path
+    """
+    return normalize_path(file_path)
+
 @mcp.tool()
 def tool_check_file_exists(file_path: str) -> Dict[str, Union[bool, str]]:
     """
-    Check if a file exists at the specified path and return its status.
+    Checks if a file exists at the specified path and returns detailed status information.
     
     Args:
-        file_path (str): The path to the file to check
+        file_path (str): Path to the file to check
         
     Returns:
         Dict: {
-            "exists": bool,  # Whether the file exists
-            "path": str,     # Normalized file path
-            "message": str,  # Optional status message
-            "error": str     # Optional error message if operation failed
+            'exists': bool - whether file exists,
+            'path': str - normalized path checked,
+            'message': str - optional status message,
+            'error': str - optional error message
         }
     """
     return check_file_exists(file_path)
@@ -54,18 +72,18 @@ def tool_check_file_exists(file_path: str) -> Dict[str, Union[bool, str]]:
 @mcp.tool()
 def tool_get_file_line_count(file_path: str) -> Dict[str, Union[int, str, bool]]:
     """
-    Count the number of lines in a file.
+    Counts the number of lines in a file and returns the result with metadata.
     
     Args:
-        file_path (str): Path to the file to analyze
+        file_path (str): Path to the file to count lines
         
     Returns:
         Dict: {
-            "success": bool,   # Whether operation succeeded
-            "line_count": int, # Number of lines in file (if successful)
-            "path": str,       # Normalized file path
-            "error": str,      # Error message if operation failed
-            "message": str     # Status message
+            'success': bool - whether operation succeeded,
+            'line_count': int - number of lines (if successful),
+            'path': str - normalized file path,
+            'error': str - optional error message,
+            'message': str - optional status message
         }
     """
     return get_file_line_count(file_path)
@@ -77,37 +95,36 @@ def tool_read_file_range(
     end_line: Optional[int] = None
 ) -> Dict[str, Union[str, int, bool, List[str]]]:
     """
-    Read a range of lines from a file.
+    Reads a range of lines from a file with optional start and end line numbers.
     
     Args:
-        file_path (str): Path to the file
-        start_line (int): First line to read (1-indexed, default: 1)
-        end_line (Optional[int]): Last line to read (inclusive), None reads to end
+        file_path (str): Path to the file to read
+        start_line (int): Starting line number (1-indexed, default: 1)
+        end_line (Optional[int]): Ending line number (inclusive), None reads to end
         
     Returns:
         Dict: {
-            "success": bool,     # Whether operation succeeded
-            "content": str,      # Combined content of requested lines
-            "lines": List[str],  # Individual lines as list
-            "start_line": int,   # Actual start line used
-            "end_line": int,     # Actual end line used
-            "line_count": int,  # Total lines in file
-            "path": str,        # Normalized file path
-            "error": str,        # Error message if failed
-            "message": str       # Status message
+            'success': bool - whether operation succeeded,
+            'content': str - file content as string,
+            'lines': List[str] - lines as list,
+            'start_line': int - actual start line,
+            'end_line': int - actual end line,
+            'line_count': int - total lines in file,
+            'path': str - normalized file path,
+            'error': str - optional error message
         }
     """
     return read_file_range(file_path, start_line, end_line)
 
 @mcp.tool()
 def tool_read_file_chunks(
-    file_path: str,
-    chunk_size: int,
-    overlap: int = 0,
+    file_path: str, 
+    chunk_size: int, 
+    overlap: int = 0, 
     chunk_index: Optional[int] = None
 ) -> Dict[str, Union[str, int, bool, List[Dict]]]:
     """
-    Read a file in chunks with optional overlap between chunks.
+    Reads a file in chunks with optional overlap between chunks.
     
     Args:
         file_path (str): Path to the file
@@ -116,58 +133,40 @@ def tool_read_file_chunks(
         chunk_index (Optional[int]): Specific chunk to retrieve (0-indexed)
         
     Returns:
-        Dict: {
-            "success": bool,       # Whether operation succeeded
-            "content": str,        # Content if chunk_index specified
-            "lines": List[str],    # Lines if chunk_index specified
-            "chunks": List[Dict],  # Chunk metadata if no chunk_index
-            "chunk_count": int,    # Total number of chunks
-            "chunk_index": int,    # Current chunk index if specified
-            "start_line": int,     # Start line of chunk
-            "end_line": int,       # End line of chunk
-            "line_count": int,     # Total lines in file
-            "path": str,           # Normalized file path
-            "error": str,          # Error message if failed
-            "message": str         # Status message
-        }
+        Dict: Either chunk metadata or specific chunk content with:
+            - 'chunks': List[Dict] - chunk metadata (if chunk_index=None)
+            OR
+            - 'content': str - chunk content (if chunk_index specified)
+            Plus common fields like 'success', 'path', 'error' etc.
     """
     return read_file_chunks(file_path, chunk_size, overlap, chunk_index)
 
 @mcp.tool()
 def tool_read_file_with_line_numbers(
-    file_path: str,
-    start_line: int = 1,
+    file_path: str, 
+    start_line: int = 1, 
     end_line: Optional[int] = None
 ) -> Dict[str, Union[str, int, bool]]:
     """
-    Read file content with line numbers prepended.
+    Reads file content with line numbers prepended to each line.
     
     Args:
         file_path (str): Path to the file
-        start_line (int): First line to read (1-indexed, default: 1)
-        end_line (Optional[int]): Last line to read (inclusive), None reads to end
+        start_line (int): Starting line number (1-indexed, default: 1)
+        end_line (Optional[int]): Ending line number (inclusive), None reads to end
         
     Returns:
-        Dict: {
-            "success": bool,     # Whether operation succeeded
-            "content": str,      # Content with line numbers
-            "start_line": int,   # Actual start line used
-            "end_line": int,     # Actual end line used
-            "line_count": int,   # Total lines in file
-            "path": str,        # Normalized file path
-            "error": str,        # Error message if failed
-            "message": str      # Status message
-        }
+        Dict: Same structure as tool_read_file_range but with numbered content
     """
     return read_file_with_line_numbers(file_path, start_line, end_line)
 
 @mcp.tool()
 def tool_create_or_write_file(
-    file_path: str,
+    file_path: str, 
     content: str
 ) -> Dict[str, Union[bool, str]]:
     """
-    Create a new file or overwrite existing file with content.
+    Creates a new file or overwrites existing file with given content.
     
     Args:
         file_path (str): Path to the file
@@ -175,81 +174,76 @@ def tool_create_or_write_file(
         
     Returns:
         Dict: {
-            "success": bool,  # Whether operation succeeded
-            "path": str,      # Normalized file path
-            "message": str,   # Status message
-            "error": str      # Error message if failed
+            'success': bool - whether operation succeeded,
+            'path': str - normalized file path,
+            'message': str - status message,
+            'error': str - optional error message
         }
     """
     return create_or_write_file(file_path, content)
 
 @mcp.tool()
 def tool_append_to_file(
-    file_path: str,
+    file_path: str, 
     content: str
 ) -> Dict[str, Union[bool, str]]:
     """
-    Append content to an existing file (creates file if doesn't exist).
+    Appends content to an existing file or creates new file if not exists.
     
     Args:
         file_path (str): Path to the file
         content (str): Content to append
         
     Returns:
-        Dict: {
-            "success": bool,  # Whether operation succeeded
-            "path": str,      # Normalized file path
-            "message": str,   # Status message
-            "error": str      # Error message if failed
-        }
+        Dict: Same structure as tool_create_or_write_file
     """
     return append_to_file(file_path, content)
 
 @mcp.tool()
 def tool_insert_at_line(
-    file_path: str,
-    line_number: int,
+    file_path: str, 
+    line_number: int, 
     content: str
-) -> Dict[str, Union[bool, str, int]]:
+) -> Dict[str, Union[bool, str, int]]]:
     """
-    Insert content at specific line in file (creates file if doesn't exist).
+    Inserts content at specified line in file, creating file if needed.
     
     Args:
         file_path (str): Path to the file
-        line_number (int): Line position to insert (1-indexed)
+        line_number (int): Line number to insert at (1-indexed)
         content (str): Content to insert
         
     Returns:
         Dict: {
-            "success": bool,  # Whether operation succeeded
-            "path": str,     # Normalized file path
-            "line_count": int, # New total lines in file
-            "message": str,   # Status message
-            "error": str     # Error message if failed
+            'success': bool - whether operation succeeded,
+            'path': str - normalized file path,
+            'line_count': int - new line count,
+            'message': str - status message,
+            'error': str - optional error message
         }
     """
     return insert_at_line(file_path, line_number, content)
 
 @mcp.tool()
 def tool_delete_line(
-    file_path: str,
+    file_path: str, 
     line_number: int
 ) -> Dict[str, Union[bool, str, int]]:
     """
-    Delete a specific line from a file.
+    Deletes specified line from a file.
     
     Args:
         file_path (str): Path to the file
-        line_number (int): Line to delete (1-indexed)
+        line_number (int): Line number to delete (1-indexed)
         
     Returns:
         Dict: {
-            "success": bool,      # Whether operation succeeded
-            "path": str,          # Normalized file path
-            "deleted_line": str,   # The deleted line content
-            "new_line_count": int, # New total lines in file
-            "message": str,        # Status message
-            "error": str          # Error message if failed
+            'success': bool - whether operation succeeded,
+            'path': str - normalized file path,
+            'deleted_line': str - the deleted line content,
+            'new_line_count': int - updated line count,
+            'message': str - status message,
+            'error': str - optional error message
         }
     """
     return delete_line(file_path, line_number)

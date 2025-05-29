@@ -12,6 +12,8 @@ Similar to an octopus where each tentacle has its own brain in a collaborative s
 
 ## Installation
 
+Please install "uv" first with https://docs.astral.sh/uv/#installation
+
 ### Method 1: Local Installation
 
 ```bash
