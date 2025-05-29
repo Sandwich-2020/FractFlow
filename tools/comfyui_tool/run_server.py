@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-File Manipulator Tool Server Runner
+ComfyUI Image Generator Tool Server Runner
 
-This module provides the entry point for starting the File Manipulator Tool server.
+This module provides the entry point for starting the ComfyUI Image Generator Tool server.
 It can be run in two modes:
 1. Interactive chat mode - continuous processing of user queries until exit
 2. Single query mode - processing a single query and then exiting
@@ -28,30 +28,28 @@ from FractFlow.agent import Agent
 
 # System prompt for the AI-enhanced version
 SYSTEM_PROMPT = """
-File Manipulator provides basic file operations for reading, writing, and modifying text files.  
-
-Key capabilities:  
-- Check file existence  
-- Read file content (full, range, or chunks)  
-- Write/create files  
-- Append/insert/delete lines  
+Generate images using ComfyUI with customizable parameters. Key capabilities:  
+- Create images from text prompts  
+- Control image dimensions, seed, and quality  
+- Specify positive/negative prompts  
+- Save to specified file path  
 
 Basic usage:  
-- Use check_file_exists before operations  
-- Specify absolute paths when possible  
-- Line numbers are 1-indexed  
-- Handle errors from returned status objects  
+- Provide save_path (file or directory)  
+- Set positive_prompt (English only)  
+- Optional: negative_prompt, width, height, seed  
+- Returns path to generated image  
 
 Limitations:  
-- Only works with text files  
-- No directory operations  
-- No file permissions management
+- Keep steps=1 and cfg=1 for SDXL-TURBO  
+- Use English prompts only  
+- Requires valid save_path
 """
 
 async def create_agent(use_ai_server=False):
     """Create and initialize the Agent with appropriate tools"""
     # Create a new agent
-    agent = Agent('file_manipulator_agent')
+    agent = Agent('comfyui_image_generator_agent')
     
     # Configure the agent
     config = agent.get_config()
@@ -67,7 +65,7 @@ async def create_agent(use_ai_server=False):
     
     # Add the appropriate tool to the agent
     print(f"Loading tool from: {tool_path}")
-    agent.add_tool(tool_path, 'file_manipulator')
+    agent.add_tool(tool_path, 'comfyui_image_generator')
     
     # Initialize the agent (starts up the tool servers)
     print("Initializing agent...")
@@ -77,7 +75,7 @@ async def create_agent(use_ai_server=False):
 
 async def interactive_mode(agent):
     """Interactive chat mode with multi-turn conversation support"""
-    print("\nFile Manipulator Tool Interactive Mode")
+    print("\nComfyUI Image Generator Tool Interactive Mode")
     print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
     
     while True:
@@ -99,7 +97,7 @@ async def single_query_mode(agent, query):
 
 async def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Run File Manipulator Tool Server')
+    parser = argparse.ArgumentParser(description='Run ComfyUI Image Generator Tool Server')
     parser.add_argument('-q', '--query', type=str, help='Single query mode: process this query and exit')
     parser.add_argument('--ai', action='store_true', help='Use AI-enhanced server instead of direct MCP tools')
     args = parser.parse_args()
@@ -107,7 +105,7 @@ async def main():
     # Determine which server to use and display info
     server_type = "AI-enhanced" if args.ai else "direct MCP"
     mode_type = "single query" if args.query else "interactive"
-    print(f"Starting File Manipulator Tool in {mode_type} mode using {server_type} tools.")
+    print(f"Starting ComfyUI Image Generator Tool in {mode_type} mode using {server_type} tools.")
     
     # Create and initialize the agent
     agent = await create_agent(use_ai_server=args.ai)

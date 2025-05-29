@@ -11,6 +11,26 @@ from PIL import Image
 import base64
 import io
 
+def normalize_path(path: str) -> str:
+    """
+    Normalize a file path by expanding ~ to user's home directory
+    and resolving relative paths.
+    
+    Args:
+        path: The input path to normalize
+        
+    Returns:
+        The normalized absolute path
+    """
+    # Expand ~ to user's home directory
+    expanded_path = os.path.expanduser(path)
+    
+    # Convert to absolute path if relative
+    if not os.path.isabs(expanded_path):
+        expanded_path = os.path.abspath(expanded_path)
+        
+    return expanded_path
+
 def encode_image(image: Image.Image, size: tuple[int, int] = (512, 512)) -> str:
     image.thumbnail(size)
     buffer = io.BytesIO()
@@ -53,7 +73,7 @@ async def Visual_Question_Answering(image_path: str, prompt: str) -> str:
         str: A detailed text response from the VLM model analyzing the image according to the prompt.
              The response format depends on the nature of the prompt.
     '''
-
+    image_path = normalize_path(image_path)
     base64_image, meta_info = load_image(image_path, (512, 512))
     client = OpenAI(
         # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",

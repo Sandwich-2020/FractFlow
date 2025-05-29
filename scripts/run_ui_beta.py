@@ -33,7 +33,7 @@ async def main():
     # Add tools
     # agent.add_tool("./tools/ComfyUITool.py", "comfy_ui_tool")
     # agent.add_tool("./tools/VisualQestionAnswer.py", "visual_qa_tool")
-    agent.add_tool("./tools/wea", "wewather")
+    agent.add_tool("./tools/forecast.py", "wewather")
     
     try:
         # Create UI

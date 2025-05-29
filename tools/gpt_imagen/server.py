@@ -35,11 +35,10 @@ def normalize_path(path: str) -> str:
     return expanded_path
 
 @mcp.tool()
-async def generate_image_with_gpt(
+async def edit_image_with_gpt(
     save_path: str,
     prompt: str,
-    image_paths: List[str],
-    model: str = "gpt-image-1"
+    image_paths: List[str]
 ) -> str:
     """
     Edit and generate images using GPT's image editing capabilities with reference images.
@@ -50,7 +49,6 @@ async def generate_image_with_gpt(
         save_path: Full path where the generated image will be saved (including filename)
         prompt: Text description of how to combine and modify the reference images
         image_paths: List of paths to reference images that will be used as input for editing
-        model: GPT model to use for image editing (default: "gpt-image-1")
         
     Returns:
         Image file path as a string where the generated image is saved
@@ -58,13 +56,15 @@ async def generate_image_with_gpt(
     Example:
         To generate an image combining multiple character portraits:
         ```python
-        result = await generate_image_with_gpt(
+        result = await edit_image_with_gpt(
             save_path="output/group_photo.png",
             prompt="Three characters standing together in a group photo",
             image_paths=["char1.png", "char2.png", "char3.png"]
         )
         ```
     """
+
+    model = "gpt-image-1"
     # Normalize the save path
     save_path = normalize_path(save_path)
     
@@ -106,7 +106,6 @@ async def generate_image_with_gpt(
 async def create_image_with_gpt(
     save_path: str,
     prompt: str,
-    model: str = "gpt-image-1"
 ) -> str:
     """
     Generate a new image from scratch using GPT's image generation capabilities.
@@ -129,6 +128,7 @@ async def create_image_with_gpt(
         )
         ```
     """
+    model = "gpt-image-1"
     # Normalize the save path
     save_path = normalize_path(save_path)
     
