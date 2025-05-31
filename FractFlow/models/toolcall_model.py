@@ -140,24 +140,25 @@ Output JSON only, no other text. The arguments must be a valid JSON object."""
         Returns:
             Estimated token count
         """
-        try:
-            # Use tokencost to calculate the token count
-            # We use the model name to determine the encoding
-            token_cost = calculate_prompt_cost(messages, self.model)
-            # Convert the cost to token count (approximate)
-            # This is a rough estimate based on pricing
-            estimated_tokens = int(token_cost * 1000 * 1000)  # Convert from $ to token count approximation
+        return sum(len(m.get("content", "")) for m in messages) // 2
+        # try:
+        #     # Use tokencost to calculate the token count
+        #     # We use the model name to determine the encoding
+        #     token_cost = calculate_prompt_cost(messages, self.model)
+        #     # Convert the cost to token count (approximate)
+        #     # This is a rough estimate based on pricing
+        #     estimated_tokens = int(token_cost * 1000 * 1000)  # Convert from $ to token count approximation
             
-            self.logger.debug("Estimated token count", {
-                "messages_count": len(messages),
-                "estimated_tokens": estimated_tokens
-            })
+        #     self.logger.debug("Estimated token count", {
+        #         "messages_count": len(messages),
+        #         "estimated_tokens": estimated_tokens
+        #     })
             
-            return estimated_tokens
-        except Exception as e:
-            self.logger.warning(f"Error estimating token count", {"error": str(e)})
-            # Return a conservative estimate
-            return sum(len(m.get("content", "")) for m in messages) // 2
+        #     return estimated_tokens
+        # except Exception as e:
+        #     self.logger.warning(f"Error estimating token count", {"error": str(e)})
+        #     # Return a conservative estimate
+        #     return sum(len(m.get("content", "")) for m in messages) // 2
     
     def _calculate_max_tokens(self, messages: List[Dict[str, str]]) -> int:
         """
@@ -510,7 +511,7 @@ Please rewrite this instruction based on the error message while maintaining its
             keep_count = max(1, int(tools_count * (1 - min(0.25 * attempt, 0.75))))
             adapted_tools = tools[:keep_count] if keep_count < tools_count else tools.copy()
             
-            self.logger.info(f"Adapting parameters for attempt {attempt+1}", {
+            self.logger.debug(f"Adapting parameters for attempt {attempt+1}", {
                 "original_instruction_length": len(instruction),
                 "adapted_instruction_length": len(adapted_instruction),
                 "original_tools_count": tools_count,
