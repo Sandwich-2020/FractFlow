@@ -97,7 +97,7 @@ async def create_agent(mode_type):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Add the appropriate tool to the agent
-    agent.add_tool('tools/file_io2/src/AI_server.py', 'file_io')
+    agent.add_tool('tools/file_io2/file_io.py', 'file_io')
     agent.add_tool('tools/gpt_imagen/server.py', 'gpt_imagen')
     
     # Initialize the agent (starts up the tool servers)
