@@ -6,32 +6,6 @@ Description: Base template class for creating FractFlow tools that can run in mu
 License: MIT License
 """
 
-"""
-ToolTemplate - Base class for creating FractFlow tools with dual functionality.
-
-This template provides a unified interface for creating tools that can run in multiple modes:
-1. MCP Server mode (default): Provides AI-enhanced operations as MCP tools
-2. Interactive mode: Runs as an interactive agent 
-3. Single query mode: Processes a single query and exits
-
-Usage:
-    class MyTool(ToolTemplate):
-        SYSTEM_PROMPT = "You are a helpful assistant..."
-        TOOLS = [("path/to/tool.py", "tool_name")]
-        
-        # Optional: Override configuration
-        @classmethod
-        def create_config(cls):
-            return ConfigManager(
-                provider='deepseek',
-                deepseek_model='deepseek-chat',
-                max_iterations=10,
-                custom_system_prompt=cls.SYSTEM_PROMPT
-            )
-        
-    if __name__ == "__main__":
-        MyTool.main()
-"""
 
 import asyncio
 import os
@@ -52,26 +26,116 @@ class ToolTemplate:
     """
     Base template class for creating FractFlow tools with multiple running modes.
     
-    Subclasses must define:
-        SYSTEM_PROMPT (str): The system prompt for the agent
-        TOOLS (List[Tuple[str, str]]): List of (tool_path, tool_name) tuples
+    This template is designed as both a working base class and a learning example
+    for creating FractFlow tools. It supports three levels of customization:
     
-    Subclasses can optionally define:
-        MCP_SERVER_NAME (str): Custom MCP server name (defaults to class name)
-        TOOL_DESCRIPTION (str): Description for the main MCP tool function
+    ===== SCENARIO 1: Minimal Setup (Most Common) =====
+    Simply inherit and define two required attributes:
+    
+        class MyTool(ToolTemplate):
+            SYSTEM_PROMPT = "You are a helpful assistant for..."
+            TOOL_DESCRIPTION = "This tool helps users with..."
+    
+    ===== SCENARIO 2: Custom Tools =====
+    Add custom tool configuration:
+    
+        class MyTool(ToolTemplate):
+            SYSTEM_PROMPT = "You are a helpful assistant for..."
+            TOOL_DESCRIPTION = "This tool helps users with..."
+            TOOLS = [("path/to/my_tool.py", "my_tool_name")]
+    
+    ===== SCENARIO 3: Advanced Configuration =====
+    Override configuration method for complex setups:
+    
+        class MyTool(ToolTemplate):
+            SYSTEM_PROMPT = "You are a helpful assistant for..."
+            TOOL_DESCRIPTION = "This tool helps users with..."
+            TOOLS = [("path/to/my_tool.py", "my_tool_name")]
+            
+            @classmethod
+            def create_config(cls):
+                return ConfigManager(
+                    provider='openai',
+                    openai_model='gpt-4',
+                    max_iterations=20,
+                    custom_system_prompt=cls.SYSTEM_PROMPT
+                )
+    
+    ===== REQUIRED ATTRIBUTES =====
+    SYSTEM_PROMPT (str): The system prompt for the agent
+    TOOL_DESCRIPTION (str): Description for the main MCP tool function
+    
+    ===== OPTIONAL ATTRIBUTES =====
+    TOOLS (List[Tuple[str, str]]): List of (tool_path, tool_name) tuples
+    MCP_SERVER_NAME (str): Custom MCP server name (defaults to class name)
+    
+    ===== OPTIONAL OVERRIDES =====
+    create_config() -> ConfigManager: Custom configuration creation
+    
+    ===== CRITICAL: SYSTEM_PROMPT & TOOL_DESCRIPTION ALIGNMENT =====
+    
+    **IMPORTANT**: These tools are essentially "GPT agents with tools" that can only 
+    output strings. However, through SYSTEM_PROMPT conventions, they can output 
+    various structured information formats.
+    
+    SYSTEM_PROMPT and TOOL_DESCRIPTION must be aligned:
+    
+    1. **Tool Nature Understanding**:
+       - Your tool is a GPT agent that outputs strings
+       - TOOL_DESCRIPTION describes what the string output contains
+       - SYSTEM_PROMPT guides how to format that string output
+    
+    2. **Output Format Consistency**:
+       - If TOOL_DESCRIPTION promises structured data (e.g., JSON-like fields),
+         SYSTEM_PROMPT must instruct the agent to format output accordingly
+       - Example TOOL_DESCRIPTION: "Returns: 'result': operation result, 'success': boolean"
+         Matching SYSTEM_PROMPT: "Format your response with: result: [description], success: [true/false]"
+    
+    3. **Common Mistakes to Avoid**:
+       - TOOL_DESCRIPTION claiming to return actual JSON objects (it's strings!)
+       - SYSTEM_PROMPT with casual tone while TOOL_DESCRIPTION promises formal output
+       - Missing output format guidance in SYSTEM_PROMPT
+       - Contradictory behavior instructions (e.g., "don't output" vs "return structured data")
+    
+    4. **Best Practices**:
+       - Always include output format requirements in SYSTEM_PROMPT
+       - Make TOOL_DESCRIPTION describe the string content structure
+       - Keep both professional and consistent in tone
+       - Test that actual outputs match TOOL_DESCRIPTION promises
+    
+    5. **Example of Good Alignment**:
+    
+        TOOL_DESCRIPTION = '''
+        Processes text files and returns operation results.
         
-    Subclasses can optionally override:
-        create_config() -> ConfigManager: Custom configuration creation
+        Returns:
+        - operation_result: Description of what was performed
+        - file_content: Relevant file content (if reading)
+        - success: Boolean indicating completion
+        - message: Additional context about the operation
+        '''
+        
+        SYSTEM_PROMPT = '''
+        You are a file processing assistant.
+        
+        # Output Format Requirements
+        Your response should contain:
+        - operation_result: [describe what you did]
+        - file_content: [show relevant content when reading]
+        - success: [true/false]
+        - message: [any additional notes]
+        '''
     """
     
-    # Subclasses must define these
+    # ===== REQUIRED: User must define these =====
     SYSTEM_PROMPT: str = None
+    TOOL_DESCRIPTION: str = None
+    
+    # ===== OPTIONAL: User can define these =====
     TOOLS: List[Tuple[str, str]] = []
-    
-    # Subclasses can optionally define these
     MCP_SERVER_NAME: Optional[str] = None
-    TOOL_DESCRIPTION: Optional[str] = None
     
+    # ===== INTERNAL: Template implementation =====
     # Class-level MCP server instance
     _mcp = None
     
@@ -80,19 +144,31 @@ class ToolTemplate:
         """
         Create configuration for the agent.
         
-        Subclasses can override this method to customize configuration.
+        **SCENARIO 3 USER OVERRIDE POINT**
+        Override this method to customize model provider, parameters, and behavior.
+        Most users won't need to override this - the defaults work well.
+        
+        Default configuration:
+        - Provider: DeepSeek
+        - Model: deepseek-chat  
+        - Max iterations: 5
+        - Tool calling: turbo mode
         
         Returns:
             ConfigManager: Configured instance ready for Agent creation
+            
+        Example override:
+            @classmethod
+            def create_config(cls):
+                return ConfigManager(
+                    provider='openai',
+                    openai_model='gpt-4',
+                    max_iterations=20,
+                    custom_system_prompt=cls.SYSTEM_PROMPT
+                )
         """
         load_dotenv()
-        return ConfigManager(
-            provider='deepseek',
-            deepseek_model='deepseek-chat',
-            max_iterations=5,
-            custom_system_prompt=cls.SYSTEM_PROMPT,
-            tool_calling_version='turbo'
-        )
+        return ConfigManager()
     
     @classmethod
     async def create_agent(cls, name_suffix='assistant') -> Agent:
@@ -164,10 +240,28 @@ class ToolTemplate:
     def _validate_configuration(cls):
         """Validate that required class attributes are defined"""
         if cls.SYSTEM_PROMPT is None:
-            raise ValueError(f"{cls.__name__} must define SYSTEM_PROMPT")
+            raise ValueError(
+                f"{cls.__name__} must define SYSTEM_PROMPT. "
+                f"Example: SYSTEM_PROMPT = 'You are a helpful assistant for...'"
+            )
+        
+        if cls.TOOL_DESCRIPTION is None:
+            raise ValueError(
+                f"{cls.__name__} must define TOOL_DESCRIPTION. "
+                f"Example: TOOL_DESCRIPTION = 'This tool helps users with...'"
+            )
+        
+        # Add consistency reminder
+        print(f"⚠️  REMINDER: Ensure SYSTEM_PROMPT and TOOL_DESCRIPTION are aligned for {cls.__name__}")
+        print("   - TOOL_DESCRIPTION should describe string output structure")
+        print("   - SYSTEM_PROMPT should guide GPT to format output accordingly")
+        print("   - Both should promise the same information and format")
+        print("   - See class docstring for detailed guidelines and examples")
         
         if not cls.TOOLS:
-            raise ValueError(f"{cls.__name__} must define TOOLS list")
+            # This is actually optional, so make it a warning in the validation
+            # Most tools will have default tools or auto-discovery
+            pass
         
         # Validate tool paths exist
         current_dir = os.path.dirname(os.path.abspath(sys.modules[cls.__module__].__file__))
@@ -179,7 +273,11 @@ class ToolTemplate:
                 full_path = tool_path
                 
             if not os.path.exists(full_path):
-                raise ValueError(f"Tool path does not exist: {full_path}")
+                raise ValueError(
+                    f"Tool path does not exist: {full_path}\n"
+                    f"Check the TOOLS configuration in {cls.__name__}.\n"
+                    f"Tool paths should be relative to the class file or absolute paths."
+                )
     
     @classmethod
     async def _mcp_tool_function(cls, query: str) -> str:
@@ -235,8 +333,12 @@ class ToolTemplate:
         if cls._mcp is None:
             cls._mcp = FastMCP(cls._get_mcp_server_name())
             
-            # Register the main tool function
-            cls._mcp.tool()(cls._mcp_tool_function)
+            # Generate a proper tool name based on the class name
+            tool_name = f"{cls.__name__.lower()}"
+            
+            # Register the main tool function with description and custom name
+            tool_description = cls._get_tool_description()
+            cls._mcp.tool(name=tool_name, description=tool_description)(cls._mcp_tool_function)
         
         # Run the MCP server
         cls._mcp.run(transport='stdio')

@@ -134,46 +134,6 @@ class ConfigManager:
             }
         }
     
-    def _get_default_config(self) -> Dict[str, Any]:
-        """Get default configuration values."""
-        return {
-            'openai': {
-                'api_key': None,
-                'base_url': None,
-                'model': 'gpt-4',
-                'tool_calling_model': 'gpt-3.5-turbo',
-                'max_tokens': 4096,
-                'temperature': 1,
-            },
-            'deepseek': {
-                'api_key': None,
-                'base_url': 'https://api.deepseek.com',
-                'model': 'deepseek-chat',
-                'max_tokens': 4096,
-                'temperature': 1,
-            },
-            'qwen': {
-                'api_key': None,
-                'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-                'model': 'qwen-plus',
-                'max_tokens': 4096,
-                'temperature': 1,
-            },
-            'agent': {
-                'max_iterations': 10,
-                'custom_system_prompt': '',      # Field for customizable part of system prompt
-                'provider': 'deepseek',          # Default provider is deepseek
-                'call_path': '',                 # Call path for logging hierarchy
-            },
-            'tool_calling': {
-                'max_retries': 5,                # Maximum number of retries for tool calls
-                'base_url': 'https://api.deepseek.com',
-                'model': 'deepseek-chat',
-                'version': 'stable', # stable: stable tool use. But use more token cost (depending on the tool call length), turbo: faster tool call. yet less stable.
-                'temperature': 0,
-            }
-        }
-    
     def get_config(self) -> Dict[str, Any]:
         """
         Get the complete configuration.
@@ -214,24 +174,6 @@ class ConfigManager:
             elif values is not None:  # Handle direct values like 'provider'
                 self.set(section, values)
     
-    def _load_from_env(self, env_vars: Optional[Dict[str, str]] = None) -> None:
-        """
-        Load API keys from environment variables. Other configuration values 
-        will use defaults from _get_default_config.
-        
-        Args:
-            env_vars: Optional dictionary of environment variables.
-                     If not provided, will use os.environ.
-        """
-        # Use provided env_vars or os.environ
-        env = env_vars or os.environ
-        
-        # Only load API keys from environment variables
-        self.set('openai.api_key', env.get('COMPLETION_API_KEY'))
-        self.set('deepseek.api_key', env.get('DEEPSEEK_API_KEY'))
-        self.set('qwen.api_key', env.get('QWEN_API_KEY'))
-        
-    
     def get(self, key: str, default: Any = None) -> Any:
         """
         Get a configuration value.
@@ -269,8 +211,8 @@ class ConfigManager:
         if value is None:
             return
             
-        # Check if the key exists in the default configuration
-        default_config = self._get_default_config()
+        # Check if the key exists in the default configuration by creating a temporary default instance
+        default_config = ConfigManager()._config
         parts = key.split('.')
         check_config = default_config
         
@@ -305,21 +247,6 @@ class ConfigManager:
             self.set_config(file_config)
         except Exception as e:
             print(f"Error loading configuration from {file_path}: {e}")
-    
-    def _deep_merge(self, target: Dict[str, Any], source: Dict[str, Any]) -> None:
-        """
-        Deep merge two dictionaries.
-        
-        Args:
-            target: The target dictionary to merge into
-            source: The source dictionary to merge from
-        """
-        for key, value in source.items():
-            if key in target and isinstance(target[key], dict) and isinstance(value, dict):
-                self._deep_merge(target[key], value)
-            else:
-                if value is not None:  # Only set non-None values
-                    target[key] = value
 
     def push_to_call_path(self, module_name: str) -> None:
         """
@@ -334,18 +261,6 @@ class ConfigManager:
         else:
             new_path = module_name
         self.set('agent.call_path', new_path)
-    
-    # def pop_from_call_path(self) -> None:
-    #     """
-    #     Pop the last module from the call path.
-    #     """
-    #     current_path = self.get('agent.call_path', '')
-    #     if '.' in current_path:
-    #         new_path = current_path.rsplit('>', 1)[0]
-    #         self.set('agent.call_path', new_path)
-    #     else:
-    #         # Clear the path if there's only one module left
-    #         self.set('agent.call_path', '')
     
     def get_call_path(self) -> str:
         """

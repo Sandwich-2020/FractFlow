@@ -1,110 +1,20 @@
+#!/usr/bin/env python3
 """
-Web Search Tool Server Runner
-
-This module provides the entry point for starting the Web Search Tool server.
-It can be run in two modes:
-1. Interactive chat mode - continuous processing of user queries until exit
-2. Single query mode - processing a single query and then exiting
-
-The module initializes a FractFlow agent with the Web Search tool and
-handles user interactions according to the chosen mode.
-
-Author: Xinli Xu (xxu068@connect.hkust-gz.edu.cn) - Envision Lab
-Date: 2025-04-28
+run_save_web_search_to_file.py
+Author: Ying-Cong Chen (yingcong.ian.chen@gmail.com)
+Date: 2025-01-14
+Description: Simple launcher for WebSaveTool
 License: MIT License
 """
 
-import asyncio
 import os
 import sys
-import logging
-import argparse
-from dotenv import load_dotenv
 
-import os.path as osp
 # Add the project root directory to the Python path
-project_root = osp.abspath(osp.join(osp.dirname(__file__), '../..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 
-# Import the FractFlow Agent
-from FractFlow.agent import Agent
-from FractFlow.infra.config import ConfigManager
-from FractFlow.infra.logging_utils import setup_logging, get_logger
-
-# Setup logging
-setup_logging(level=logging.DEBUG)
-
-
-async def create_agent():
-    """Create and initialize the Agent"""
-    load_dotenv()
-    # Create a new agent
-    agent = Agent('websearch_and_fileio_agent')  # No need to specify provider here if it's in config
-    config = agent.get_config()
-    config['agent']['provider'] = 'deepseek'
-
-    config['agent']['custom_system_prompt'] = """
-    当你要输出很多内容并保存到文件时，请直接调用工具。
-     """
-    config['deepseek']['model'] = 'deepseek-chat'
-    # You can modify configuration values directly
-    config['agent']['max_iterations'] = 20  # Properly set as nested value
-    # 4. Set configuration loaded from environment
-    agent.set_config(config)
-    
-    # Add tools to the agent
-    agent.add_tool("./tools/websearch/src/AI_server.py", "websearch_tool")
-    agent.add_tool("./tools/editor/server.py", "editor_tool")
-    # Initialize the agent (starts up the tool servers)
-    print("Initializing agent...")
-    await agent.initialize()
-    
-    return agent
-
-
-async def interactive_mode(agent):
-    """Interactive chat mode"""
-    print("Agent chat started. Type 'exit', 'quit', or 'bye' to end the conversation.")
-    while True:
-        user_input = input("\nYou: ")
-        if user_input.lower() in ('exit', 'quit', 'bye'):
-            break
-            
-        print("\n thinking... \n", end="")
-        result = await agent.process_query(user_input)
-        print("Agent: {}".format(result))
-
-
-async def single_query_mode(agent, query):
-    """One-time execution mode"""
-    print(f"Processing query: {query}")
-    print("\n thinking... \n", end="")
-    result = await agent.process_query(query)
-    print("Result: {}".format(result))
-    return result
-
-
-async def main():
-    # Command line argument parsing
-    parser = argparse.ArgumentParser(description='Run Web Search Tool Server')
-    parser.add_argument('--user_query', type=str, help='Single query mode: process this query and exit')
-    args = parser.parse_args()
-    
-    # Create Agent
-    agent = await create_agent()
-    
-    try:
-        if args.user_query:
-            # Single query mode
-            await single_query_mode(agent, args.user_query)
-        else:
-            # Interactive chat mode
-            await interactive_mode(agent)
-    finally:
-        # Close Agent
-        await agent.shutdown()
-        print("\nAgent session ended.")
-
+from tools.web_save.web_save_tool import WebSaveTool
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    WebSaveTool.main() 
