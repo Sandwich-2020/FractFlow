@@ -41,17 +41,17 @@ setup_logging(
 
 async def main():
     
-    # 3. Create a new agent
-    agent = Agent('simple agent')  # No need to specify provider here if it's in config
-    config = agent.get_config()
-    config['agent']['provider'] = 'deepseek'
-    # config['agent']['custom_system_prompt'] = '你会用萌萌哒的语气回复'
-    config['deepseek']['model'] = 'deepseek-chat'
-    config['qwen']['base_url'] = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-    # You can modify configuration values directly
-    config['agent']['max_iterations'] = 5  # Properly set as nested value
-    # 4. Set configuration loaded from environment
-    agent.set_config(config)
+    # 3. Create configuration with new parameter-based approach
+    config = ConfigManager(
+        provider='deepseek',
+        deepseek_model='deepseek-chat',
+        max_iterations=5,
+        # custom_system_prompt='你会用萌萌哒的语气回复',
+        qwen_base_url='https://dashscope.aliyuncs.com/compatible-mode/v1'
+    )
+    
+    # 4. Create agent with configuration
+    agent = Agent(config=config, name='simple agent')
     
     # Add tools to the agent
     # agent.add_tool("./tools/ComfyUITool.py")

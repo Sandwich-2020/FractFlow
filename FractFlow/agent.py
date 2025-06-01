@@ -30,16 +30,16 @@ class Agent:
     the FractalFlow agent system.
     """
     
-    def __init__(self, name: str = 'agent', config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: ConfigManager, name: str = 'agent'):
         """
         Initialize the FractalFlow agent.
         
         Args:
+            config: ConfigManager instance with all configuration settings
             name: Name for the agent
-            config: Optional initial configuration dictionary
         """
-        # Initialize configuration with defaults only
-        self.config = ConfigManager(config)
+        # Use provided configuration
+        self.config = config
         self.name = name
         
         # Push agent name to call path
@@ -59,26 +59,6 @@ class Agent:
         
         self.logger.info(f"Agent '{self.name}' initialized")
         
-    def get_config(self) -> Dict[str, Any]:
-        """
-        Get the current configuration.
-        
-        Returns:
-            The current configuration dictionary
-        """
-        # Simply delegate to the config manager
-        return self.config.get_config()
-    
-    def set_config(self, config: Dict[str, Any]) -> None:
-        """
-        Set the configuration.
-        
-        Args:
-            config: The configuration dictionary to set
-        """
-        # Simply delegate to the config manager
-        self.config.set_config(config)
-    
     def add_tool(self, tool_path: str, tool_name: str) -> None:
         """
         Add a tool to the agent.

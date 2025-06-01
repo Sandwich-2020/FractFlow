@@ -19,6 +19,16 @@ Usage:
         SYSTEM_PROMPT = "You are a helpful assistant..."
         TOOLS = [("path/to/tool.py", "tool_name")]
         
+        # Optional: Override configuration
+        @classmethod
+        def create_config(cls):
+            return ConfigManager(
+                provider='deepseek',
+                deepseek_model='deepseek-chat',
+                max_iterations=10,
+                custom_system_prompt=cls.SYSTEM_PROMPT
+            )
+        
     if __name__ == "__main__":
         MyTool.main()
 """
@@ -33,8 +43,9 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 import os.path as osp
 
-# Import the FractFlow Agent
+# Import the FractFlow Agent and Config
 from .agent import Agent
+from .infra.config import ConfigManager
 from .infra.logging_utils import setup_logging, get_logger
 
 class ToolTemplate:
@@ -46,9 +57,11 @@ class ToolTemplate:
         TOOLS (List[Tuple[str, str]]): List of (tool_path, tool_name) tuples
     
     Subclasses can optionally define:
-        CONFIG_OVERRIDES (Dict): Additional configuration overrides
         MCP_SERVER_NAME (str): Custom MCP server name (defaults to class name)
         TOOL_DESCRIPTION (str): Description for the main MCP tool function
+        
+    Subclasses can optionally override:
+        create_config() -> ConfigManager: Custom configuration creation
     """
     
     # Subclasses must define these
@@ -56,12 +69,75 @@ class ToolTemplate:
     TOOLS: List[Tuple[str, str]] = []
     
     # Subclasses can optionally define these
-    CONFIG_OVERRIDES: Dict[str, Any] = {}
     MCP_SERVER_NAME: Optional[str] = None
     TOOL_DESCRIPTION: Optional[str] = None
     
     # Class-level MCP server instance
     _mcp = None
+    
+    @classmethod
+    def create_config(cls) -> ConfigManager:
+        """
+        Create configuration for the agent.
+        
+        Subclasses can override this method to customize configuration.
+        
+        Returns:
+            ConfigManager: Configured instance ready for Agent creation
+        """
+        load_dotenv()
+        return ConfigManager(
+            provider='deepseek',
+            deepseek_model='deepseek-chat',
+            max_iterations=5,
+            custom_system_prompt=cls.SYSTEM_PROMPT,
+            tool_calling_version='turbo'
+        )
+    
+    @classmethod
+    async def create_agent(cls, name_suffix='assistant') -> Agent:
+        """
+        Create and initialize an Agent with tools.
+        
+        Args:
+            name_suffix: Suffix for agent name (e.g., 'assistant', 'agent')
+            
+        Returns:
+            Agent: Initialized agent ready for use
+        """
+        config = cls.create_config()
+        agent = Agent(config=config, name=f'{cls.__name__.lower()}_{name_suffix}')
+        
+        # Add tools to the agent
+        await cls._add_tools_to_agent(agent)
+        
+        # Initialize the agent
+        print("Initializing agent...")
+        await agent.initialize()
+        
+        return agent
+    
+    @classmethod
+    async def _add_tools_to_agent(cls, agent: Agent):
+        """
+        Add tools to the agent based on TOOLS configuration.
+        
+        Args:
+            agent: Agent instance to add tools to
+        """
+        current_dir = os.path.dirname(os.path.abspath(sys.modules[cls.__module__].__file__))
+        
+        for tool_path, tool_name in cls.TOOLS:
+            # Handle relative paths
+            if not os.path.isabs(tool_path):
+                full_path = os.path.join(current_dir, tool_path)
+            else:
+                full_path = tool_path
+                
+            if not os.path.exists(full_path):
+                raise ValueError(f"Tool path does not exist: {full_path}")
+                
+            agent.add_tool(full_path, tool_name)
     
     @classmethod
     def _get_mcp_server_name(cls):
@@ -106,104 +182,9 @@ class ToolTemplate:
                 raise ValueError(f"Tool path does not exist: {full_path}")
     
     @classmethod
-    async def _create_agent_for_mcp(cls):
-        """Create and initialize the Agent for MCP tool usage"""
-        load_dotenv()
-        # Create a new agent
-        agent = Agent(f'{cls.__name__.lower()}_assistant')
-        config = agent.get_config()
-        
-        # Apply default configuration
-        # config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
-        # config['agent']['provider'] = 'deepseek'
-        # config['deepseek']['model'] = 'deepseek-chat'
-        # config['agent']['max_iterations'] = 5
-        # config['agent']['custom_system_prompt'] = cls.SYSTEM_PROMPT
-        # config['tool_calling']['version'] = 'turbo'
-        
-        # Apply any config overrides
-        for key, value in cls.CONFIG_OVERRIDES.items():
-            # Support nested config keys like 'agent.max_iterations'
-            if '.' in key:
-                keys = key.split('.')
-                target = config
-                for k in keys[:-1]:
-                    if k not in target:
-                        target[k] = {}
-                    target = target[k]
-                target[keys[-1]] = value
-            else:
-                config[key] = value
-        
-        agent.set_config(config)
-        
-        # Add tools to the agent
-        current_dir = os.path.dirname(os.path.abspath(sys.modules[cls.__module__].__file__))
-        for tool_path, tool_name in cls.TOOLS:
-            # Handle relative paths
-            if not os.path.isabs(tool_path):
-                full_path = os.path.join(current_dir, tool_path)
-            else:
-                full_path = tool_path
-            
-            agent.add_tool(full_path, tool_name)
-        
-        # Initialize the agent
-        print("Initializing agent...")
-        await agent.initialize()
-        
-        return agent
-    
-    @classmethod
-    async def _create_agent_for_script(cls):
-        """Create and initialize the Agent for script mode"""
-        load_dotenv()
-        # Create a new agent
-        agent = Agent(f'{cls.__name__.lower()}_agent')
-        
-        # Configure the agent
-        config = agent.get_config()
-        config['agent']['max_iterations'] = 20
-        config['agent']['custom_system_prompt'] = cls.SYSTEM_PROMPT
-        config['tool_calling']['version'] = 'turbo'
-        
-        # Apply any config overrides
-        for key, value in cls.CONFIG_OVERRIDES.items():
-            if '.' in key:
-                keys = key.split('.')
-                target = config
-                for k in keys[:-1]:
-                    if k not in target:
-                        target[k] = {}
-                    target = target[k]
-                target[keys[-1]] = value
-            else:
-                config[key] = value
-        
-        agent.set_config(config)
-        
-        # Add tools to the agent
-        current_dir = os.path.dirname(os.path.abspath(sys.modules[cls.__module__].__file__))
-        for tool_path, tool_name in cls.TOOLS:
-            # Handle relative paths
-            if not os.path.isabs(tool_path):
-                full_path = os.path.join(current_dir, tool_path)
-            else:
-                full_path = tool_path
-            
-            print(f"Loading tool from: {full_path}")
-            agent.add_tool(full_path, tool_name)
-        
-        # Initialize the agent
-        print("Initializing agent...")
-        await agent.initialize()
-        
-        return agent
-    
-    @classmethod
     async def _mcp_tool_function(cls, query: str) -> str:
         """The main MCP tool function that processes queries"""
-        agent = await cls._create_agent_for_mcp()
+        agent = await cls.create_agent()
         try:
             result = await agent.process_query(query)
             return result
@@ -216,7 +197,7 @@ class ToolTemplate:
         print(f"\n{cls.__name__} Interactive Mode")
         print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
         
-        agent = await cls._create_agent_for_script()
+        agent = await cls.create_agent('agent')
         
         try:
             while True:
@@ -237,7 +218,7 @@ class ToolTemplate:
         print(f"Processing query: {query}")
         print("\nProcessing...\n")
         
-        agent = await cls._create_agent_for_script()
+        agent = await cls.create_agent('agent')
         
         try:
             result = await agent.process_query(query)

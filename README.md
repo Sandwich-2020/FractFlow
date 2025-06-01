@@ -77,21 +77,24 @@ Here is a basic example showing how to create and use a FractFlow Agent:
 import asyncio
 import os
 from dotenv import load_dotenv
-from FractFlow.agent import Agent
+from FractFlow import ConfigManager, Agent
 
 async def main():
     # Load environment variables
     load_dotenv()
     
-    # Create Agent
-    agent = Agent()
-    config = agent.get_config()
-    # Default configurations can be overwritten as needed
-    config['agent']['provider'] = 'deepseek'
-    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
-    config['deepseek']['model'] = 'deepseek-chat'
-    config['agent']['max_iterations'] = 100
-    agent.set_config(config)
+    # Create configuration with all settings as parameters
+    config = ConfigManager(
+        provider='deepseek',
+        deepseek_model='deepseek-chat',
+        max_iterations=100,
+        # API keys are automatically loaded from environment variables
+        # You can also pass them explicitly:
+        # deepseek_api_key=os.getenv('DEEPSEEK_API_KEY')
+    )
+    
+    # Create Agent with configuration
+    agent = Agent(config=config)
     
     # Add tools
     agent.add_tool("./tools/weather/forecast.py", "forecast_tool")
@@ -109,6 +112,40 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+## Configuration Parameters
+
+The ConfigManager accepts the following parameters, all with sensible defaults:
+
+### Provider Configuration
+- `provider`: Model provider to use ('deepseek', 'openai', 'qwen'), default: 'deepseek'
+
+### DeepSeek Configuration
+- `deepseek_api_key`: DeepSeek API key (auto-loaded from DEEPSEEK_API_KEY env var)
+- `deepseek_base_url`: DeepSeek API base URL, default: 'https://api.deepseek.com'
+- `deepseek_model`: DeepSeek model name, default: 'deepseek-chat'
+- `deepseek_max_tokens`: Maximum tokens for DeepSeek, default: 4096
+- `deepseek_temperature`: Temperature for DeepSeek, default: 1.0
+
+### OpenAI Configuration
+- `openai_api_key`: OpenAI API key (auto-loaded from COMPLETION_API_KEY env var)
+- `openai_base_url`: OpenAI API base URL
+- `openai_model`: OpenAI model name, default: 'gpt-4'
+- `openai_tool_calling_model`: OpenAI tool calling model, default: 'gpt-3.5-turbo'
+- `openai_max_tokens`: Maximum tokens for OpenAI, default: 4096
+- `openai_temperature`: Temperature for OpenAI, default: 1.0
+
+### Agent Behavior Configuration
+- `max_iterations`: Maximum thinking iterations for complex tasks, default: 10
+- `custom_system_prompt`: Custom system prompt to adjust agent behavior
+- `call_path`: Call path for logging hierarchy
+
+### Tool Calling Configuration
+- `tool_calling_max_retries`: Maximum retries for tool calls, default: 5
+- `tool_calling_base_url`: API base URL for tool calling, default: 'https://api.deepseek.com'
+- `tool_calling_model`: Model for tool calling, default: 'deepseek-chat'
+- `tool_calling_version`: Tool calling version ('stable' or 'turbo'), default: 'stable'
+- `tool_calling_temperature`: Temperature for tool calling, default: 0
 
 ## How to Write Tools
 
@@ -201,21 +238,21 @@ Here is a more complete example of how to use the FractFlow library (refer to `r
 import asyncio
 import os
 from dotenv import load_dotenv
-from FractFlow.agent import Agent
+from FractFlow import ConfigManager, Agent
 
 async def main():
     # Load environment variables
     load_dotenv()
     
-    # Create Agent
-    agent = Agent()
-    config = agent.get_config()
-    config['agent']['provider'] = 'deepseek'
-    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
-    config['deepseek']['model'] = 'deepseek-chat'
-    config['qwen']['api_key'] = os.getenv('QWEN_API_KEY')
-    config['agent']['max_iterations'] = 100
-    agent.set_config(config)
+    # Create configuration
+    config = ConfigManager(
+        provider='deepseek',
+        deepseek_model='deepseek-chat',
+        max_iterations=100
+    )
+    
+    # Create Agent with configuration
+    agent = Agent(config=config)
     
     # Add tools
     if os.path.exists("./tools/weather/forecast.py"):
@@ -248,10 +285,9 @@ if __name__ == "__main__":
 
 ### Main API Methods
 
-- `agent = Agent()` - Create a new Agent instance
-- `config = agent.get_config()` - Get current configuration
-- `agent.set_config(config)` - Set configuration
-- `agent.add_tool(tool_path)` - Add a tool to the Agent
+- `config = ConfigManager(...)` - Create configuration with parameters
+- `agent = Agent(config=config)` - Create Agent instance with configuration
+- `agent.add_tool(tool_path, tool_name)` - Add a tool to the Agent
 - `await agent.initialize()` - Initialize the Agent
 - `result = await agent.process_query(user_input)` - Process user query
 - `await agent.shutdown()` - Shut down the Agent
@@ -265,7 +301,7 @@ import asyncio
 import os
 import sys
 from dotenv import load_dotenv
-from FractFlow.agent import Agent
+from FractFlow import ConfigManager, Agent
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("fractal weather")
@@ -282,14 +318,15 @@ async def weather_agent(user_input: str) -> str:
     # Load environment variables
     load_dotenv()
     
-    # Create Agent
-    agent = Agent()
-    config = agent.get_config()
-    config['agent']['provider'] = 'deepseek'
-    config['deepseek']['api_key'] = os.getenv('DEEPSEEK_API_KEY')
-    config['deepseek']['model'] = 'deepseek-chat'
-    config['agent']['max_iterations'] = 100
-    agent.set_config(config)
+    # Create configuration
+    config = ConfigManager(
+        provider='deepseek',
+        deepseek_model='deepseek-chat',
+        max_iterations=100
+    )
+    
+    # Create Agent with configuration
+    agent = Agent(config=config)
     
     # Add tools
     if os.path.exists("./tools/weather/forecast.py"):

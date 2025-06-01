@@ -66,10 +66,6 @@ When working with line numbers, remember they are 1-indexed (first line is 1).
         ("src/server.py", "file_operations")
     ]
     
-    CONFIG_OVERRIDES = {
-        "agent.max_iterations": 20  # Override for script mode
-    }
-    
     MCP_SERVER_NAME = "file_io_tool"
     
     TOOL_DESCRIPTION = """
@@ -98,6 +94,21 @@ When working with line numbers, remember they are 1-indexed (first line is 1).
         "Append 'New entry' to log.txt" → Appends text and confirms
         "Process large_log.txt in chunks" → Processes in efficient chunks
     """
+    
+    @classmethod
+    def create_config(cls):
+        """Custom configuration for File I/O tool"""
+        from FractFlow.infra.config import ConfigManager
+        from dotenv import load_dotenv
+        
+        load_dotenv()
+        return ConfigManager(
+            provider='deepseek',
+            deepseek_model='deepseek-chat',
+            max_iterations=20,  # Higher iterations for complex file operations
+            custom_system_prompt=cls.SYSTEM_PROMPT,
+            tool_calling_version='turbo'
+        )
 
 if __name__ == "__main__":
     FileIOTool.main() 
