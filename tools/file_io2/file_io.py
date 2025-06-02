@@ -68,31 +68,13 @@ When working with line numbers, remember they are 1-indexed (first line is 1).
     
     MCP_SERVER_NAME = "file_io_tool"
     
-    TOOL_DESCRIPTION = """
-    Performs intelligent file operations based on natural language requests.
+    TOOL_DESCRIPTION = """Processes file operations based on natural language requests.
     
     Parameters:
         query: str - Natural language description of file operation to perform
-               Examples: "Read the first 10 lines of log.txt"
-                         "Create a new file called notes.txt with content 'Hello'"
-                         "Delete lines 5, 10, and 15 from data.csv"
-    
-    Notes:
-        - Automatically selects appropriate file operations based on request
-        - Handles large files efficiently through chunking
-        - Provides informative error messages and suggestions
-        - Supports both absolute and relative file paths
-        - All line numbers are 1-indexed (first line is line 1)
-    
+        
     Returns:
-        str - Operation result or error message with guidance
-    
-    Examples:
-        "Check if config.json exists" → Returns existence status
-        "Read lines 5-10 from log.txt" → Returns specified content
-        "Count lines in data.csv" → Returns line count
-        "Append 'New entry' to log.txt" → Appends text and confirms
-        "Process large_log.txt in chunks" → Processes in efficient chunks
+        str - Operation result or error message
     """
     
     @classmethod

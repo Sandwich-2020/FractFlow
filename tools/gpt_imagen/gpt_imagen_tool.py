@@ -74,30 +74,13 @@ class GPTImagenTool(ToolTemplate):
     
     MCP_SERVER_NAME = "gpt_image_generator_tool"
     
-    TOOL_DESCRIPTION = """
-    Generates high-quality images based on natural language descriptions using advanced AI models.
-
-This tool accepts detailed text prompts describing desired images and returns generated visual content in various styles and formats. It supports creative image generation, artistic style transfers, and photo-realistic rendering.
-
-Input format:
-- Natural language description of the desired image (1-3 sentences recommended)
-- Can include style preferences (e.g., "watercolor", "cyberpunk", "photorealistic")
-- May specify composition elements, colors, lighting, or artistic influences
-
-Returns:
-- 'image_url': URL to the generated image (PNG/JPEG format)
-- 'prompt_used': The exact prompt that was processed
-- 'style': Detected or applied artistic style
-- 'resolution': Image dimensions in pixels (width x height)
-- 'success': Boolean indicating generation success
-- 'message': Additional information about the generation process
-
-Examples:
-- "A majestic lion standing on a cliff at sunset, digital painting style"
-- "Futuristic cityscape with flying cars, neon lights, cyberpunk aesthetic (4K resolution)"
-- "Cute corgi puppy playing in autumn leaves, watercolor illustration"
-- "Portrait of a steampunk inventor in their workshop, detailed oil painting"
-- "Minimalist logo design featuring a mountain and sun, vector art"
+    TOOL_DESCRIPTION = """Generates images from natural language descriptions using GPT models.
+    
+    Parameters:
+        query: str - Natural language description of image to generate
+        
+    Returns:
+        str - Generation result or error message
     """
     
     @classmethod
