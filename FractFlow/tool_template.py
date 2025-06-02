@@ -167,8 +167,7 @@ class ToolTemplate:
                     custom_system_prompt=cls.SYSTEM_PROMPT
                 )
         """
-        load_dotenv()
-        return ConfigManager()
+        return ConfigManager(custom_system_prompt=cls.SYSTEM_PROMPT)
     
     @classmethod
     async def create_agent(cls, name_suffix='assistant') -> Agent:
