@@ -107,7 +107,7 @@ When working with line numbers, remember they are 1-indexed (first line is 1).
             deepseek_model='deepseek-chat',
             max_iterations=20,  # Higher iterations for complex file operations
             custom_system_prompt=cls.SYSTEM_PROMPT,
-            tool_calling_version='turbo'
+            tool_calling_version='stable'
         )
 
 if __name__ == "__main__":

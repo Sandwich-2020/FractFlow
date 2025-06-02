@@ -250,13 +250,6 @@ class ToolTemplate:
                 f"Example: TOOL_DESCRIPTION = 'This tool helps users with...'"
             )
         
-        # Add consistency reminder
-        print(f"⚠️  REMINDER: Ensure SYSTEM_PROMPT and TOOL_DESCRIPTION are aligned for {cls.__name__}")
-        print("   - TOOL_DESCRIPTION should describe string output structure")
-        print("   - SYSTEM_PROMPT should guide GPT to format output accordingly")
-        print("   - Both should promise the same information and format")
-        print("   - See class docstring for detailed guidelines and examples")
-        
         if not cls.TOOLS:
             # This is actually optional, so make it a warning in the validation
             # Most tools will have default tools or auto-discovery
@@ -350,12 +343,13 @@ class ToolTemplate:
         
         # Parse command line arguments
         parser = argparse.ArgumentParser(description=f'{cls.__name__} - Unified Interface')
-        parser.add_argument('--interactive', action='store_true', help='Run in interactive mode')
-        parser.add_argument('--query', type=str, help='Single query mode: process this query and exit')
+        parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode')
+        parser.add_argument('--query', '-q', type=str, help='Single query mode: process this query and exit')
+        parser.add_argument('--log-level', '-l', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], default='INFO', help='Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL')
         args = parser.parse_args()
         
         # Setup logging
-        setup_logging(level=logging.INFO)
+        setup_logging(level=args.log_level)
         
         if args.interactive:
             # Interactive mode

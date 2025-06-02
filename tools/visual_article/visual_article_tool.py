@@ -27,81 +27,70 @@ class VisualArticleTool(ToolTemplate):
     """Visual article generator tool using ToolTemplate with fractal intelligence"""
     
     SYSTEM_PROMPT = """
-## 🧠 你是一个图文 Markdown 内容生成 Agent
 
-你的职责是撰写结构化的 Markdown 文章，并在适当位置自动插入相关插图，最终生成一篇完整、图文并茂的 Markdown 文件。
-
----
-
-## 🔁 工作流（循环执行）
-
-### 1. 规划阶段（仅一次）
-
-* 明确主题、结构、段落划分、图像需求
-* 在内部完成规划
+你负责生成结构化、图文并茂的 Markdown 文章。执行流程如下：
 
 ---
 
-### 2. 段落生成流程（每段循环）
+### 🔁 工作流程
 
-#### 2.1 撰写段落
+#### 1. 规划阶段（一次性）
 
-* 撰写该段 Markdown 内容，结构清晰、语言自然，故事完整，字数不小于500字。
-* 在合适位置插入图像路径引用，如：
-  `![说明](images/sectionX-figY.png)`
-* 内容必须**直接写入 Markdown 文件**
+* 明确主题、结构、段落划分与图像需求（内部完成）
 
-#### 2.2 生成插图
+#### 2. 段落生成循环
 
-* 根据该段上下文，为引用的路径生成图像
-* 图像应与引用路径匹配，保存至 `images/` 子目录
+每段内容执行以下操作：
 
-#### 2.3 路径一致性检查
+1. **撰写段落**
 
-* 检查当前段落图像路径是否：
+   * 不少于500字，结构清晰
+   * 插入图片引用，例如：
+     `![说明](images/sectionX-figY.png)`
+   * 内容直接写入 Markdown 文件
 
-  * 属于 `images/` 目录
-  * 与实际文件匹配
-  * 唯一、不重复
+2. **生成插图**
+
+   * 根据上下文生成插图
+   * **必须使用完整路径**，例如：
+     `output/visual_article_generator/[项目名]/images/section2-fig1.png`
+   * 确保与 Markdown 中的相对路径一致（即 `images/section2-fig1.png`）
+
+3. **路径校验**
+
+   * 路径必须：
+
+     * 位于 `images/` 目录下
+     * 唯一、不重复
+     * 与生成文件严格匹配
+
+#### 3. 下一段
+
+* 重复段落撰写与插图，直到文章完成
 
 ---
 
-### 3. 进入下一段
+### 📁 文件结构约定
 
-* 重复段落撰写、插图生成、路径校验，直到整篇文章完成
+默认保存路径为：
 
----
-
-## 📁 文件结构约定
-
-* 文章主文件为 Markdown 格式
-* 图像命名应基于段落结构，如 `section2-fig1.png`
-* 如果没有特别指定目录的话，请你把文章保存到"output/visual_article_generator/"目录下，每一个项目起一个新的文件夹，文件夹名称为项目名称。结构如下：
 ```
 output/visual_article_generator/
-├── project1/
+├── [项目名]/
 │   ├── article.md
 │   └── images/
 ```
 
+图像命名规则：如 `section2-fig1.png`。注意需要传入完整的文件路径。
+
 ---
 
-## 📤 输出格式要求
-
-完成文章生成后，你的回复应该包含以下结构化信息：
-- article_path: 生成的Markdown文章的文件路径
-- images_generated: 生成的图像文件列表及其描述
-- article_structure: 创建的内容结构概览
-- success: 操作是否成功完成
-- message: 关于生成过程的补充信息
-
-在执行过程中专注于文件操作，最终提供完整的生成结果总结。
 """
     
     # 分形智能体：调用其他智能体
     TOOLS = [
         ("../file_io2/file_io.py", "file_manager_agent"),
-        ("../gpt_imagen/gpt_imagen_tool.py", "image_creator_agent")
+        ("../gpt_imagen/server.py", "image_creator_agent")
     ]
     
     MCP_SERVER_NAME = "visual_article_tool"
@@ -151,7 +140,7 @@ Features:
             deepseek_model='deepseek-chat',
             max_iterations=50,  # Visual article generation requires many steps
             custom_system_prompt=cls.SYSTEM_PROMPT,
-            tool_calling_version='turbo'
+            tool_calling_version='stable'
         )
 
 if __name__ == "__main__":
