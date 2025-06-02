@@ -74,6 +74,21 @@ class QueryProcessor:
             # Get the tools schema
             tools = await self.orchestrator.get_available_tools()
             
+            # Get tool name mapping and inject it into the model context if there are mappings
+            tool_mapping = await self.orchestrator.get_tool_name_mapping()
+            if tool_mapping:
+                # Create a mapping description for the model
+                mapping_description = self._create_tool_mapping_description(tool_mapping)
+                
+                # Add this as a system-level context injection
+                # We'll add it as a user message that provides context, then immediately add the actual query
+                # This ensures the mapping is fresh for each query without modifying the permanent system prompt
+                model.add_user_message(f"[TOOL MAPPING CONTEXT]\n{mapping_description}\n[USER QUERY FOLLOWS]")
+                # Re-add the actual user query
+                model.add_user_message(user_query)
+                
+                self.logger.debug("Injected tool mapping context", {"mapping": tool_mapping})
+            
             # Initial content placeholder
             content = ""
             
@@ -163,6 +178,34 @@ class QueryProcessor:
             if 'model' in locals() and hasattr(model, 'history'):
                 self.logger.error("Error occurred while processing query", {"history_length": len(model.history.get_messages())})
             return f"Sorry, there was a technical problem processing your request. Error: {str(error)}"
+    
+    def _create_tool_mapping_description(self, tool_mapping: Dict[str, List[str]]) -> str:
+        """
+        Create a human-readable description of tool name mappings.
+        
+        Args:
+            tool_mapping: Dictionary mapping tool names to function names
+            
+        Returns:
+            Formatted string describing the mappings
+        """
+        if not tool_mapping:
+            return ""
+            
+        lines = ["When you see references to the following tool names in the system prompt, use the corresponding actual function(s):"]
+        lines.append("")
+        
+        for tool_name, function_names in tool_mapping.items():
+            if function_names:
+                functions_str = ", ".join(function_names)
+                lines.append(f"- {tool_name} → {functions_str}")
+            else:
+                lines.append(f"- {tool_name} → (no functions available)")
+        
+        lines.append("")
+        lines.append("Use the actual function names (after →) in your tool calls, not the reference names (before →).")
+        
+        return "\n".join(lines)
 
     def get_history(self) -> List[Dict[str, Any]]:
         """

@@ -193,6 +193,44 @@ class Orchestrator:
             self.logger.error(f"Error getting available tools", {"error": str(error)})
             return []
             
+    async def get_tool_name_mapping(self) -> Dict[str, List[str]]:
+        """
+        Get mapping from user-defined tool names to actual function names.
+        
+        Returns:
+            Dictionary mapping tool names to lists of function names
+            Example: {'file_manager_agent': ['fileiotool'], 'image_creator_agent': ['create_image_with_gpt', 'edit_image_with_gpt']}
+        """
+        if not self.launcher or not self.tool_loader:
+            self.logger.warning("Orchestrator not started, returning empty mapping")
+            return {}
+            
+        mapping = {}
+        
+        try:
+            # For each configured tool, get the functions it provides
+            for tool_name, tool_path in self.tool_configs.items():
+                # Find the client for this tool
+                if tool_name in self.launcher.client_pool.clients:
+                    session = self.launcher.client_pool.clients[tool_name]
+                    try:
+                        response = await session.list_tools()
+                        function_names = [tool.name for tool in response.tools]
+                        mapping[tool_name] = function_names
+                        self.logger.debug(f"Mapped tool", {"tool_name": tool_name, "functions": function_names})
+                    except Exception as e:
+                        self.logger.error(f"Error getting functions for tool", {"tool_name": tool_name, "error": str(e)})
+                        mapping[tool_name] = []
+                else:
+                    self.logger.warning(f"No client found for tool", {"tool_name": tool_name})
+                    mapping[tool_name] = []
+                    
+        except Exception as e:
+            error = handle_error(e)
+            self.logger.error(f"Error creating tool name mapping", {"error": str(error)})
+            
+        return mapping
+
     def get_model(self) -> BaseModel:
         """
         Get the model instance.
