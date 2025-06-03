@@ -57,30 +57,15 @@ class WebSearchTool(ToolTemplate):
     
     MCP_SERVER_NAME = "web_search_tool"
     
-    TOOL_DESCRIPTION = """
-    Performs web searches and browses web pages to find information based on natural language queries.
-
-This tool can search the web for current information, browse specific websites, and extract relevant content to answer user questions. It supports both general web searches and targeted webpage analysis.
-
-Input format:
-- Natural language questions or search queries
-- Can include specific websites to search within
-- May request recent information or current events
-- Can ask for detailed analysis of specific web pages
-
-Returns:
-- 'search_results': List of relevant web search results
-- 'web_content': Extracted content from browsed pages
-- 'sources': URLs and titles of information sources used
-- 'success': Boolean indicating operation completion
-- 'message': Additional context about the search process
-
-Examples:
-- "What are the latest developments in AI technology?"
-- "Search for Python tutorials for beginners"
-- "Find information about climate change effects in 2024"
-- "Browse the official documentation for React framework"
-- "What are people saying about the new iPhone model?"
+    TOOL_DESCRIPTION = """Performs web searches and browses web pages to find information.
+    
+    Parameters:
+        query: str - Search query with optional preferences (e.g., "Python tutorials" or "Latest AI news, browse top 3 results")
+        
+    Returns:
+        str - Search results with browsed content or error message
+        
+    Note: Supports multiple search engines (DuckDuckGo, Google, Baidu).
     """
     
     @classmethod

@@ -68,13 +68,15 @@ When working with line numbers, remember they are 1-indexed (first line is 1).
     
     MCP_SERVER_NAME = "file_io_tool"
     
-    TOOL_DESCRIPTION = """Processes file operations based on natural language requests.
+    TOOL_DESCRIPTION = """Processes file operations including reading, writing, and management tasks.
     
     Parameters:
-        query: str - Natural language description of file operation to perform
+        query: str - File operation with path and details (e.g., "Read lines 10-20 from /path/file.txt" or "Create file config.py with content: import os")
         
     Returns:
-        str - Operation result or error message
+        str - Operation result with file content or confirmation message
+        
+    Note: Supports chunked reading for large files, line-based operations, and automatic directory creation.
     """
     
     @classmethod

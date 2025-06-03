@@ -71,30 +71,13 @@ generate_image_with_comfyui - 基于文本提示使用SDXL-TURBO模型创建图�
     
     MCP_SERVER_NAME = "comfyui_image_generator_tool"
     
-    TOOL_DESCRIPTION = """
-    Generates images using ComfyUI based on natural language descriptions or style specifications.
-
-This tool accepts text prompts describing desired images and returns generated images along with generation details. It supports various styles, compositions, and can incorporate specific artistic references.
-
-Input format:
-- Natural language description of desired image (required)
-- Optional style specifications (e.g., "anime style", "photorealistic")
-- Can include composition details (e.g., "centered portrait", "wide landscape")
-- May reference specific artists or art styles
-- Can specify image dimensions (e.g., "1024x768")
-
-Returns:
-- 'image_url': URL to generated image (PNG format)
-- 'generation_parameters': Dictionary of parameters used (prompt, seed, steps, etc.)
-- 'success': Boolean indicating generation success
-- 'message': Additional information or error details
-
-Examples:
-- "A futuristic cityscape at night with neon lights, cyberpunk style"
-- "Portrait of a warrior with golden armor, fantasy art style, 1024x1024"
-- "Watercolor painting of autumn forest with vibrant colors"
-- "Product photo of a modern smartphone on marble surface, studio lighting"
-- "Character design sheet for a steampunk inventor, multiple poses"
+    TOOL_DESCRIPTION = """Generates images using ComfyUI based on natural language descriptions.
+    
+    Parameters:
+        query: str - Include save path and image description (e.g., "Save to /path/image.png: futuristic city")
+        
+    Returns:
+        str - Generated image path or error message
     """
     
     @classmethod

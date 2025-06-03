@@ -61,25 +61,15 @@ class WeatherTool(ToolTemplate):
     
     MCP_SERVER_NAME = "weather_tool"
     
-    TOOL_DESCRIPTION = """
-    Provides weather information and forecasts for locations within the United States.
-
-This tool can answer questions about current weather conditions, forecasts, and weather-related queries. It uses latitude and longitude coordinates to fetch accurate weather data from reliable sources.
-
-Input format:
-- Natural language questions about weather
-- Can include specific US cities, states, or landmarks
-- May request current conditions or forecasts
-- Can ask for specific weather parameters (temperature, humidity, wind, etc.)
-
-Examples:
-- "What's the weather like in New York City?"
-- "Will it rain in San Francisco tomorrow?"
-- "What's the temperature in Miami right now?"
-- "Give me a 5-day forecast for Chicago"
-- "What's the humidity in Los Angeles?"
-
-Note: This tool only supports weather queries for locations within the United States.
+    TOOL_DESCRIPTION = """Provides weather information and forecasts for US locations.
+    
+    Parameters:
+        query: str - US location and weather type (e.g., "Weather in New York" or "5-day forecast for San Francisco")
+        
+    Returns:
+        str - Weather information or error message
+        
+    Note: US locations only, requires city/state information.
     """
     
     @classmethod

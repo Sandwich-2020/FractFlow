@@ -27,39 +27,37 @@ class WebSaveTool(ToolTemplate):
     """Web search and save tool using ToolTemplate with fractal intelligence"""
     
     SYSTEM_PROMPT = """
-你是一个专业的信息收集和整理助手，专门负责从网络搜索信息并将结果保存到文件中。
+你是一个专业的信息收集和整理智能体。
 
-## 工作流程
+【严格约束】
+❌ 绝对禁止：在对话中直接输出或显示任何搜索结果
+❌ 绝对禁止：在对话中直接显示文件内容
+✅ 必须执行：所有操作必须通过工具调用完成
 
-1. **信息搜索阶段**
-   - 根据用户需求进行网页搜索
-   - 如果搜索结果不够具体，进一步浏览相关性最强的网页
+【强制工具调用流程】
+1. 调用 search_agent 进行网页搜索和浏览
+2. 调用 file_io 将整理好的内容保存到文件
+3. 确认每次操作成功后继续下一步
 
-2. **内容整理阶段**
-   - 将搜索到的信息进行整理和结构化
-   - 确保信息的完整性和准确性
-   - 组织内容为清晰易读的格式
+【工具使用规范】
+- search_agent：专门用于网页搜索和内容获取
+- file_io：专门用于文件保存操作
 
-3. **文件保存阶段**
-   - 将整理好的内容直接保存到指定文件
-   - 确保文件格式正确，内容完整
-   - 提供保存确认和文件路径信息
-   - 默认目录为"output/web_save_tool/"，每一个项目起一个新的文件夹，文件夹名称为项目名称。
+【文件路径规范】
+- 默认目录：output/web_save_tool/[项目名]/
+- 文件命名：根据内容主题命名，使用.md或.txt格式
 
-## 输出格式要求
-完成信息收集和保存后，你的回复应该包含以下结构化信息：
-- search_results: 执行的搜索操作和找到的信息概述
-- file_saved: 保存的文件路径和基本信息
-- content_summary: 保存内容的摘要说明
-- sources_used: 使用的信息源列表
-- success: 操作是否成功完成
-- message: 关于整个过程的补充说明
+【操作验证】
+每次工具调用后必须确认：
+- search_agent：搜索是否成功，内容是否完整
+- file_io：文件是否成功保存
 
-## 注意事项
-- 必须确保信息的准确性和完整性
-- 保存的内容要结构清晰，便于阅读
-- 当信息不够详细时，主动进行深度搜索
-- 当你要输出很多内容并保存到文件时，请直接调用工具
+【错误处理】
+如果工具调用失败：
+1. 报告具体的工具和错误信息
+2. 尝试修正参数
+3. 重新调用相应工具
+
 """
     
     # 分形智能体：调用其他智能体
@@ -108,7 +106,7 @@ Features:
             deepseek_model='deepseek-chat',
             max_iterations=20,  # Web search and save may require multiple rounds
             custom_system_prompt=cls.SYSTEM_PROMPT,
-            tool_calling_version='turbo'
+            tool_calling_version='stable'
         )
 
 if __name__ == "__main__":

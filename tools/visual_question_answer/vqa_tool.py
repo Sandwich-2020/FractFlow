@@ -66,29 +66,15 @@ Visual_Question_Answering - 处理图像并回答关于其内容的问题。接�
     
     MCP_SERVER_NAME = "visual_question_answering_tool"
     
-    TOOL_DESCRIPTION = """
-    Answers questions about visual content by analyzing images and providing relevant information.
-
-This tool accepts natural language questions about images and returns accurate answers by interpreting both the visual content and the question context. The tool can analyze uploaded images or work with image references provided in the query.
-
-Input format:
-- Natural language questions about visual content
-- Can include image references (URLs, file descriptions, or contextual references)
-- May specify particular aspects of the image to focus on
-
-Returns:
-- 'answer': Text response answering the visual question
-- 'confidence': Float (0-1) indicating answer certainty
-- 'visual_reference': Description of relevant image regions used
-- 'success': Boolean indicating operation completion
-- 'message': Additional context about the answer when available
-
-Examples:
-- "What color is the car in this image?"
-- "How many people are visible in the photograph?"
-- "Describe the painting style of this artwork"
-- "Is there any text visible in the image and what does it say?"
-- "Compare the two products shown in these images and highlight key differences"
+    TOOL_DESCRIPTION = """Answers questions about visual content by analyzing images.
+    
+    Parameters:
+        query: str - Include image path and specific question (e.g., "Image: /path/photo.jpg What color is the car?")
+        
+    Returns:
+        str - Visual analysis result or error message
+        
+    Note: Requires accessible image files, automatically resized to 512x512.
     """
     
     @classmethod
