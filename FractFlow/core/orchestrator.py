@@ -40,7 +40,7 @@ class Orchestrator:
         
         Args:
             tool_configs: Dictionary mapping tool names to their provider scripts
-                          Example: {'weather': '/path/to/weather_tool.py',
+                          Example: {'weather': '/path/to/weather_agent.py',
                                    'search': '/path/to/search_tool.py'}
             provider: The AI provider to use (e.g., 'openai', 'deepseek')
             config: Configuration manager instance to use
@@ -95,7 +95,7 @@ class Orchestrator:
         
         Args:
             tools_config: Dictionary mapping tool names to their provider scripts
-                          Example: {'weather': '/path/to/weather_tool.py',
+                          Example: {'weather': '/path/to/weather_agent.py',
                                    'search': '/path/to/search_tool.py'}
         """
         for tool_name, script_path in tools_config.items():

@@ -1,3 +1,0 @@
-"""
-Weather tools test package.
-""" 

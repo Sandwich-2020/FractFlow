@@ -49,13 +49,13 @@ class ToolTemplate:
     names to the actual function names that the tool scripts provide.
     
     Example:
-        TOOLS = [("../file_io2/file_io.py", "file_manager_agent")]
+        TOOLS = [("../file_io/file_io_agent.py", "file_manager_agent")]
         SYSTEM_PROMPT = '''
         When user needs file operations, use file_manager_agent.
         '''
     
     The system will automatically inform the model that "file_manager_agent" maps to 
-    the actual functions provided by file_io.py (like "fileiotool").
+    the actual functions provided by file_io_agent.py (like "fileioagent").
     
     ===== SCENARIO 3: Advanced Configuration =====
     Override configuration method for complex setups:
