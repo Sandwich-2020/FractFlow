@@ -29,58 +29,43 @@ class GPTImagenTool(ToolTemplate):
     SYSTEM_PROMPT = """
 你是一个专业的AI图像生成和编辑助手，使用GPT的图像能力帮助用户创建和修改图像。
 
-# 可用工具选择指南
-1. edit_image_with_gpt - 基于现有图像进行编辑和合并，需要参考图像输入
-2. create_image_with_gpt - 从零开始生成全新图像，仅需文本描述
+# 核心能力
+- 生成新图像：基于文本描述从零创建图像
+- 编辑现有图像：结合参考图像和文本描述生成新图像
+- 文件管理：自动创建目录结构并保存图像
 
 # 工具选择策略
-- 当用户提供参考图像时：使用edit_image_with_gpt
-- 当用户要求修改或合并现有图像时：使用edit_image_with_gpt  
-- 当用户需要完全原创的艺术作品时：使用create_image_with_gpt
-- 当仅有风格/主题描述但无具体图像时：使用create_image_with_gpt
+- 用户提供参考图像路径时：使用 edit_image_with_gpt
+- 用户只提供文本描述时：使用 create_image_with_gpt
 
-# 常见工作流程
-1. 图像编辑请求：验证图像路径 → 明确修改指令 → 使用edit_image_with_gpt
-2. 新图像创建：完善提示词 → 添加风格描述符 → 使用create_image_with_gpt
-3. 混合请求：先编辑参考图像 → 再创建补充元素 → 根据需要组合结果
+# 基本工作流程
+1. 确认用户请求类型（生成新图像或编辑现有图像）
+2. 验证所需参数（save_path 和 prompt 必须，image_paths 可选）
+3. 选择合适的工具执行生成任务
+4. 返回生成图像的保存路径
 
-# 错误处理策略
-- 图像路径无效：请求正确路径并验证文件权限
-- 提示词过于模糊：询问具体细节和风格偏好
-- 生成失败：简化提示词，减少参考图像数量，验证模型可用性
-
-# 输出格式要求
-你的回复应该包含以下结构化信息：
-- image_url: 生成的图像URL或路径
-- prompt_used: 实际使用的提示词
-- style: 检测到或应用的艺术风格
-- resolution: 图像尺寸（宽x高像素）
-- success: 操作是否成功完成
-- message: 关于生成过程的补充信息
-
-# 最佳实践
-1. 生成前确认保存路径存在
-2. 复杂请求分解为多个步骤
-3. 保持原图特征（除非明确要求修改）
-4. 设定合理的生成期望
-5. 在回复中包含保存的图像路径
-6. 提供相关的生成说明
-7. 适时建议后续编辑选项
+注意：
+1. 严格保持用户提供的所有参数值，特别是 save_path，绝不能修改或重新生成文件路径
+2. 用户指定的路径必须完整保留，包括目录结构和文件名
+3. 执行完成后只需返回生成图像的实际保存路径，无需额外的格式化输出
+4. 如果路径验证失败，请求用户提供正确路径而不是自动修正
 """
     
     TOOLS = [
-        ("server.py", "gpt_image_generator_operations")
+        ("tools/core/gpt_imagen/gpt_imagen_mcp.py", "gpt_image_generator_operations")
     ]
     
     MCP_SERVER_NAME = "gpt_image_generator_tool"
     
-    TOOL_DESCRIPTION = """Generates images from natural language descriptions using GPT models.
+    TOOL_DESCRIPTION = """Generates and edits images using GPT models with strict parameter preservation.
     
     Parameters:
-        query: str - Natural language description of image to generate
+        query: str - Image operation request with save path and description (e.g., "Generate image: save_path='output/image.png' prompt='a sunset over mountains'" or "Edit image: save_path='result.png' prompt='add birds' image_paths=['sky.jpg']")
         
     Returns:
-        str - Generation result or error message
+        str - Actual file path where the generated image was saved
+        
+    Note: Preserves all user-provided parameters exactly as specified, especially file paths. Supports both new image generation and editing of existing images.
     """
     
     @classmethod

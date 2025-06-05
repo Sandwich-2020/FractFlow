@@ -213,12 +213,12 @@ class ToolTemplate:
         Args:
             agent: Agent instance to add tools to
         """
-        current_dir = os.path.dirname(os.path.abspath(sys.modules[cls.__module__].__file__))
+        project_root = cls._get_project_root()
         
         for tool_path, tool_name in cls.TOOLS:
-            # Handle relative paths
+            # Handle relative paths - now relative to project root
             if not os.path.isabs(tool_path):
-                full_path = os.path.join(current_dir, tool_path)
+                full_path = os.path.join(project_root, tool_path)
             else:
                 full_path = tool_path
                 
@@ -227,6 +227,47 @@ class ToolTemplate:
                 
             agent.add_tool(full_path, tool_name)
     
+    @classmethod
+    def _get_project_root(cls):
+        """
+        Find the project root directory by looking for characteristic files.
+        
+        Returns:
+            str: Path to the project root directory
+            
+        Raises:
+            ValueError: If project root cannot be found
+        """
+        current_file = os.path.abspath(sys.modules[cls.__module__].__file__)
+        current_dir = os.path.dirname(current_file)
+        
+        # Characteristic files that indicate project root
+        root_indicators = [
+            'pyproject.toml',
+            'README.md', 
+            '.git',
+            'requirements.txt',
+            'setup.py'
+        ]
+        
+        # Search upwards from current directory
+        search_dir = current_dir
+        while search_dir != os.path.dirname(search_dir):  # Not at filesystem root
+            for indicator in root_indicators:
+                if os.path.exists(os.path.join(search_dir, indicator)):
+                    return search_dir
+            search_dir = os.path.dirname(search_dir)
+        
+        # If we can't find project root, fall back to current directory
+        # and issue a warning
+        import warnings
+        warnings.warn(
+            f"Could not find project root from {current_file}. "
+            f"Using current directory as fallback: {current_dir}",
+            UserWarning
+        )
+        return current_dir
+
     @classmethod
     def _get_mcp_server_name(cls):
         """Get the MCP server name, using class name as default"""
@@ -269,11 +310,11 @@ class ToolTemplate:
             pass
         
         # Validate tool paths exist
-        current_dir = os.path.dirname(os.path.abspath(sys.modules[cls.__module__].__file__))
+        project_root = cls._get_project_root()
         for tool_path, tool_name in cls.TOOLS:
-            # Handle relative paths
+            # Handle relative paths - now relative to project root
             if not os.path.isabs(tool_path):
-                full_path = os.path.join(current_dir, tool_path)
+                full_path = os.path.join(project_root, tool_path)
             else:
                 full_path = tool_path
                 
@@ -281,7 +322,8 @@ class ToolTemplate:
                 raise ValueError(
                     f"Tool path does not exist: {full_path}\n"
                     f"Check the TOOLS configuration in {cls.__name__}.\n"
-                    f"Tool paths should be relative to the class file or absolute paths."
+                    f"Tool paths should be relative to the project root or absolute paths.\n"
+                    f"Project root detected: {project_root}"
                 )
     
     @classmethod

@@ -68,8 +68,8 @@ class VisualArticleTool(ToolTemplate):
     
     # 分形智能体：调用其他智能体
     TOOLS = [
-        ("../file_io/file_io_agent.py", "file_manager_agent"),
-        ("../gpt_imagen/server.py", "image_creator_agent")
+        ("tools/core/file_io/file_io_mcp.py", "file_manager_agent"),
+        ("tools/core/gpt_imagen/gpt_imagen_agent.py", "image_creator_agent")
     ]
     
     MCP_SERVER_NAME = "visual_article_tool"

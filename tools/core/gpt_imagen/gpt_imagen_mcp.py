@@ -114,7 +114,6 @@ async def create_image_with_gpt(
     Args:
         save_path: Full path where the generated image will be saved (including filename)
         prompt: Detailed text description of the image to generate
-        model: GPT model to use for image generation (default: "gpt-image-1")
         
     Returns:
         Image file path as a string where the generated image is saved

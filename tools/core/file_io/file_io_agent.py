@@ -63,7 +63,7 @@ When working with line numbers, remember they are 1-indexed (first line is 1).
 """
     
     TOOLS = [
-        ("file_io_mcp.py", "file_operations")
+        ("tools/core/file_io/file_io_mcp.py", "file_operations")
     ]
     
     MCP_SERVER_NAME = "file_io_agent"

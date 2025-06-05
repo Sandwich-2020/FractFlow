@@ -482,7 +482,9 @@ def create_file(file_path: str, content: str) -> Dict[str, Union[bool, str]]:
         - Creates parent directories if they don't exist
         - Overwrites file if it already exists without confirmation
         - Preserves the content string exactly, including newlines and whitespace
-        - For appending or inserting instead of overwriting, use append_content or insert_content_at_line
+        - For appending instead of overwriting, use append_to_file
+        - For inserting at specific line, use insert_at_line
+        - WARNING: This function OVERWRITES existing files completely
     
     Returns:
         dict with keys:
@@ -524,16 +526,32 @@ def create_file(file_path: str, content: str) -> Dict[str, Union[bool, str]]:
         }
 
 
+@mcp.tool()
 def append_to_file(file_path: str, content: str) -> Dict[str, Union[bool, str]]:
     """
-    Append content to the end of a file. If the file doesn't exist, it will be created.
+    Appends content to the end of an existing file or creates new file with content.
     
-    Args:
-        file_path: Path to the file
-        content: Content to append to the file
-        
+    Parameters:
+        file_path: str - Absolute or relative path to the file
+        content: str - Text content to append to the file
+    
+    Notes:
+        - Creates parent directories if they don't exist
+        - Creates the file if it doesn't exist
+        - Always appends content to the end, never overwrites existing content
+        - Preserves the content string exactly, including newlines and whitespace
+        - Use this instead of create_file when you want to add content to existing files
+    
     Returns:
-        Dictionary with operation status
+        dict with keys:
+        - success: bool - True if operation succeeded, False otherwise
+        - path: str - Normalized absolute path to the file
+        - message: str - Success/error message
+        - error: str - Error type if operation failed
+    
+    Examples:
+        "Add 'New line' to end of log.txt" → append_to_file(file_path="log.txt", content="New line\n")
+        "Append section to article.md" → append_to_file(file_path="article.md", content="\n\n## New Section\nContent here")
     """
     try:
         path = normalize_path(file_path)
@@ -564,18 +582,35 @@ def append_to_file(file_path: str, content: str) -> Dict[str, Union[bool, str]]:
         }
 
 
+@mcp.tool()
 def insert_at_line(file_path: str, line_number: int, content: str) -> Dict[str, Union[bool, str, int]]:
     """
-    Insert content at a specified line in a file. If the file doesn't exist, it will be created.
-    If line_number exceeds the file length, the content will be appended to the end.
+    Inserts content at a specific line number in a file.
     
-    Args:
-        file_path: Path to the file
-        line_number: Line number to insert at (1-indexed)
-        content: Content to insert
-        
+    Parameters:
+        file_path: str - Absolute or relative path to the file
+        line_number: int - Line number to insert at (1-indexed)
+        content: str - Text content to insert
+    
+    Notes:
+        - Line numbers are 1-indexed (first line is 1, not 0)
+        - Creates parent directories and file if they don't exist
+        - If line_number exceeds file length, content is appended to end
+        - If line_number exceeds file length with gap, empty lines are added
+        - Existing lines are shifted down after insertion point
+        - Automatically adds newline if content doesn't end with one
+    
     Returns:
-        Dictionary with operation status
+        dict with keys:
+        - success: bool - True if operation succeeded, False otherwise
+        - path: str - Normalized absolute path to the file
+        - line_count: int - Total number of lines after insertion
+        - message: str - Success/error message
+        - error: str - Error type if operation failed
+    
+    Examples:
+        "Insert header at line 1 of file.txt" → insert_at_line(file_path="file.txt", line_number=1, content="# Header")
+        "Add comment at line 50" → insert_at_line(file_path="code.py", line_number=50, content="# Comment line")
     """
     try:
         path = normalize_path(file_path)
@@ -643,16 +678,34 @@ def insert_at_line(file_path: str, line_number: int, content: str) -> Dict[str, 
         }
 
 
+@mcp.tool()
 def delete_line(file_path: str, line_number: int) -> Dict[str, Union[bool, str, int]]:
     """
-    Delete a specific line from a file.
+    Deletes a specific line from a file.
     
-    Args:
-        file_path: Path to the file
-        line_number: Line number to delete (1-indexed)
-        
+    Parameters:
+        file_path: str - Absolute or relative path to the file
+        line_number: int - Line number to delete (1-indexed)
+    
+    Notes:
+        - Line numbers are 1-indexed (first line is 1, not 0)
+        - File must exist, returns error if file not found
+        - Returns error if line_number exceeds file length
+        - Remaining lines maintain their relative positions after deletion
+        - File is rewritten with the specified line removed
+    
     Returns:
-        Dictionary with operation status
+        dict with keys:
+        - success: bool - True if operation succeeded, False otherwise
+        - path: str - Normalized absolute path to the file
+        - deleted_line: str - Content of the deleted line
+        - new_line_count: int - Total number of lines after deletion
+        - message: str - Success/error message
+        - error: str - Error type if operation failed
+    
+    Examples:
+        "Delete line 5 from config.txt" → delete_line(file_path="config.txt", line_number=5)
+        "Remove first line from data.csv" → delete_line(file_path="data.csv", line_number=1)
     """
     try:
         path = normalize_path(file_path)
