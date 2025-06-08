@@ -381,8 +381,13 @@ This is a typical representative of fractal intelligence, coordinating multiple 
 python tools/composite/visual_article_agent.py --query "Write an article about AI development with illustrations"
 
 # Customized articles
-python tools/composite/visual_article_agent.py --query "Create a report on sustainable development, requiring 5000 words with charts"
+python tools/composite/visual_article_agent.py --query "设定：一个视觉识别AI统治社会的世界，人类只能依赖它解释图像。主人公却拥有“人类视觉直觉”，并因此被怀疑为异常个体。
+要求：以第一人称，写一段剧情片段，展现他与AI模型对图像理解的冲突。
+情绪基调：冷峻、怀疑、诗性。"
 ```
+
+
+![](assets/visual_article.gif)
 
 **Workflow**:
 1. Analyze article requirements and structure

@@ -382,8 +382,12 @@ python tools/core/visual_question_answer/vqa_agent.py --query "Image: /path/to/p
 python tools/composite/visual_article_agent.py --query "写一篇关于人工智能发展的文章，包含配图"
 
 # 定制文章
-python tools/composite/visual_article_agent.py --query "创建一份关于可持续发展的报告，要求5000字，包含图表"
+python tools/composite/visual_article_agent.py --query "设定：一个视觉识别AI统治社会的世界，人类只能依赖它解释图像。主人公却拥有“人类视觉直觉”，并因此被怀疑为异常个体。
+要求：以第一人称，写一段剧情片段，展现他与AI模型对图像理解的冲突。
+情绪基调：冷峻、怀疑、诗性。"
 ```
+
+![](assets/visual_article.gif)
 
 **工作流程：**
 1. 分析文章需求和结构
