@@ -87,11 +87,10 @@ class DeepVisualReasoningAgent(ToolTemplate):
         load_dotenv()
         return ConfigManager(
             provider='deepseek',
-            deepseek_model='deepseek-reasoner',
+            deepseek_model='deepseek-chat',
             max_iterations=15,  # Reduced to reasonable range for dynamic focusing
             custom_system_prompt=cls.SYSTEM_PROMPT,
-            tool_calling_version='stable',
-            deepseek_temperature=0.4  # Slightly higher for creative focusing
+            tool_calling_version='stable'
         )
 
 if __name__ == "__main__":
