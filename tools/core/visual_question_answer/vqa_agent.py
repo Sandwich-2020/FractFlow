@@ -61,7 +61,7 @@ Visual_Question_Answering - 处理图像并回答关于其内容的问题。接�
 """
     
     TOOLS = [
-        ("vqa_mcp.py", "visual_question_answering_operations")
+        ("tools/core/visual_question_answer/vqa_mcp.py", "visual_question_answering_operations")
     ]
     
     MCP_SERVER_NAME = "visual_question_answering_tool"
