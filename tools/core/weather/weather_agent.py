@@ -56,7 +56,7 @@ class WeatherAgent(ToolTemplate):
 """
     
     TOOLS = [
-        ("weather_mcp.py", "forecast")
+        ("tools/core/weather/weather_mcp.py", "forecast")
     ]
     
     MCP_SERVER_NAME = "weather_agent"
