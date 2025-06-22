@@ -414,6 +414,107 @@ else:
         
         return self.send_command("execute_code", {"code": script})
     
+    def scale_object(self, name, scale_factors):
+        """缩放对象到指定绝对尺寸
+        
+        Parameters:
+            name: 对象名称
+            scale_factors: 目标绝对尺寸 [x, y, z] (米) 或 单一数值（等比缩放到该尺寸）
+        """
+        # 处理单一数值的等比缩放
+        if isinstance(scale_factors, (int, float)):
+            scale_factors = [scale_factors, scale_factors, scale_factors]
+        
+        script = f"""
+import bpy
+
+obj = bpy.data.objects.get("{name}")
+if not obj:
+    print("✗ 未找到对象")
+else:
+    # 获取当前尺寸
+    current_dimensions = [obj.dimensions.x, obj.dimensions.y, obj.dimensions.z]
+    target_dimensions = [{scale_factors[0]}, {scale_factors[1]}, {scale_factors[2]}]
+    
+    # 检查是否有极大的尺寸（可能是导入问题）
+    max_current = max(current_dimensions)
+    if max_current > 1000:  # 如果任何尺寸超过1000米，可能是单位问题
+        print(f"⚠️ 检测到极大对象 (最大尺寸: {{max_current:.1f}}m)，可能存在单位转换问题")
+    
+    # 计算所需的缩放比例
+    scale_ratios = []
+    for i in range(3):
+        if current_dimensions[i] > 0.001:  # 避免除零
+            ratio = target_dimensions[i] / current_dimensions[i]
+            scale_ratios.append(ratio)
+        else:
+            scale_ratios.append(1.0)
+    
+    # 应用缩放
+    old_scale = [obj.scale.x, obj.scale.y, obj.scale.z]
+    obj.scale = (scale_ratios[0], scale_ratios[1], scale_ratios[2])
+    
+    # 更新场景
+    bpy.context.view_layer.update()
+    
+    # 获取缩放后的实际尺寸
+    new_dimensions = [obj.dimensions.x, obj.dimensions.y, obj.dimensions.z]
+    
+    import json
+    result = {{
+        'object': obj.name,
+        'old_dimensions': [round(d, 3) for d in current_dimensions],
+        'target_dimensions': [round(d, 3) for d in target_dimensions],
+        'new_dimensions': [round(d, 3) for d in new_dimensions],
+        'scale_ratios': [round(r, 6) for r in scale_ratios],
+        'old_scale': [round(s, 6) for s in old_scale],
+        'new_scale': [round(obj.scale.x, 6), round(obj.scale.y, 6), round(obj.scale.z, 6)],
+        'status': 'success'
+    }}
+    
+    # 验证结果
+    tolerance = 0.1  # 10cm 容差
+    success = all(abs(new_dimensions[i] - target_dimensions[i]) < tolerance for i in range(3))
+    
+    if success:
+        print("✓ 缩放成功")
+    else:
+        print("⚠️ 缩放可能不准确")
+        result['status'] = 'warning'
+    
+    print(json.dumps(result))
+"""
+        
+        return self.send_command("execute_code", {"code": script})
+    
+    def rotate_object(self, name, rotation_euler):
+        """旋转对象
+        
+        Parameters:
+            name: 对象名称
+            rotation_euler: 欧拉角旋转 [x, y, z] (弧度)
+        """
+        script = f"""
+import bpy
+
+obj = bpy.data.objects.get("{name}")
+if not obj:
+    print("✗ 未找到对象")
+else:
+    old_rotation = [obj.rotation_euler.x, obj.rotation_euler.y, obj.rotation_euler.z]
+    obj.rotation_euler = ({rotation_euler[0]}, {rotation_euler[1]}, {rotation_euler[2]})
+    
+    import json
+    result = {{
+        'object': obj.name,
+        'old_rotation': old_rotation,
+        'new_rotation': [{rotation_euler[0]}, {rotation_euler[1]}, {rotation_euler[2]}]
+    }}
+    print(json.dumps(result))
+"""
+        
+        return self.send_command("execute_code", {"code": script})
+    
     def set_guide_metadata(self, object_name, metadata):
         """设置引导线对象的元数据"""
         import json
@@ -488,6 +589,78 @@ print(json.dumps(result, ensure_ascii=False))
             return json.loads(result.strip().split('\n')[-1])
         except:
             return result
+
+    # ========== 添加缺失的方法（极简实现，返回原始数据） ==========
+    
+    def get_object_description(self, name):
+        """获取对象的原始数据作为描述"""
+        raw_data = self.get_raw_object_data(name)
+        if isinstance(raw_data, dict):
+            return f"✓ 对象 {name} 的原始数据：{raw_data}"
+        else:
+            return raw_data  # 如果是错误信息，直接返回
+    
+    def get_guide_info_by_semantic_id(self, semantic_id):
+        """根据语义ID获取引导线信息，返回原始数据让LLM分析"""
+        guides_data = self.get_raw_guides_data()
+        
+        if isinstance(guides_data, dict) and 'guides' in guides_data:
+            return f"✓ 查找语义ID '{semantic_id}' 的引导线信息：\n所有引导线原始数据：{guides_data}"
+        else:
+            return f"✗ 无法获取引导线数据：{guides_data}"
+    
+    def find_empty_guides(self, item_type=""):
+        """查找空置引导线，返回原始数据让LLM分析"""
+        guides_data = self.get_raw_guides_data()
+        
+        if isinstance(guides_data, dict) and 'guides' in guides_data:
+            filter_info = f" (筛选类型: {item_type})" if item_type else ""
+            return f"✓ 查找空置引导线{filter_info}：\n原始引导线数据：{guides_data}"
+        else:
+            return f"✗ 无法获取引导线数据：{guides_data}"
+    
+    def merge_objects(self, object_list, target_name):
+        """合并对象，使用Blender的join操作"""
+        if not object_list or len(object_list) < 2:
+            return "✗ 需要至少2个对象进行合并"
+        
+        # 构建对象列表字符串
+        objects_str = "', '".join(object_list)
+        
+        script = f"""
+import bpy
+
+# 获取要合并的对象
+objects_to_merge = []
+for obj_name in ['{objects_str}']:
+    obj = bpy.data.objects.get(obj_name)
+    if obj and obj.type == 'MESH':
+        objects_to_merge.append(obj)
+
+if len(objects_to_merge) < 2:
+    print("✗ 找不到足够的网格对象进行合并")
+else:
+    # 选择所有对象
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects_to_merge:
+        obj.select_set(True)
+    
+    # 设置第一个对象为活动对象
+    bpy.context.view_layer.objects.active = objects_to_merge[0]
+    
+    # 执行合并
+    bpy.ops.object.join()
+    
+    # 重命名合并后的对象
+    merged_obj = bpy.context.active_object
+    if merged_obj:
+        merged_obj.name = "{target_name}"
+        print(f"✓ 成功合并对象，新名称：{{merged_obj.name}}")
+    else:
+        print("✗ 合并操作失败")
+"""
+        
+        return self.send_command("execute_code", {"code": script})
 
 
 blender_primitive = BlenderPrimitive() 
