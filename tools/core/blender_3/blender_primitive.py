@@ -263,7 +263,7 @@ else:
     
     # ========== 基本操作接口（保持简洁） ==========
     
-    def create_guide_cube(self, name, location, dimensions, metadata=None):
+    def create_guide_cube(self, name, location, dimensions, metadata=None, rotation=[0, 0, 0]):
         """创建线框式引导线"""
         import json
         
@@ -285,15 +285,15 @@ else:
             "# 手动创建线框立方体的顶点和边",
             "bm = bmesh.new()",
             "",
-            "# 创建立方体的8个顶点",
-            "v0 = bm.verts.new((-0.5, -0.5, -0.5))",
-            "v1 = bm.verts.new((0.5, -0.5, -0.5))",
-            "v2 = bm.verts.new((0.5, 0.5, -0.5))",
-            "v3 = bm.verts.new((-0.5, 0.5, -0.5))",
-            "v4 = bm.verts.new((-0.5, -0.5, 0.5))",
-            "v5 = bm.verts.new((0.5, -0.5, 0.5))",
-            "v6 = bm.verts.new((0.5, 0.5, 0.5))",
-            "v7 = bm.verts.new((-0.5, 0.5, 0.5))",
+            "# 创建立方体的8个顶点（底部对齐）",
+            "v0 = bm.verts.new((-0.5, -0.5, 0.0))",
+            "v1 = bm.verts.new((0.5, -0.5, 0.0))",
+            "v2 = bm.verts.new((0.5, 0.5, 0.0))",
+            "v3 = bm.verts.new((-0.5, 0.5, 0.0))",
+            "v4 = bm.verts.new((-0.5, -0.5, 1.0))",
+            "v5 = bm.verts.new((0.5, -0.5, 1.0))",
+            "v6 = bm.verts.new((0.5, 0.5, 1.0))",
+            "v7 = bm.verts.new((-0.5, 0.5, 1.0))",
             "",
             "# 创建立方体的12条边",
             "# 底面边",
@@ -326,12 +326,15 @@ else:
             "# 设置位置",
             f"obj.location = ({location[0]}, {location[1]}, {location[2]})",
             "",
-            "# 先缩放到目标尺寸",
+            "# 设置旋转（在缩放之前）",
+            f"obj.rotation_euler = ({rotation[0]}, {rotation[1]}, {rotation[2]})",
+            "",
+            "# 设置缩放到目标尺寸", 
             f"obj.scale = ({dimensions[0]}, {dimensions[1]}, {dimensions[2]})",
             "",
-            "# 应用变换",
-            "bpy.context.view_layer.objects.active = obj",
-            "bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)",
+            "# 不应用变换，保持与实际物体的变换处理方式一致",
+            "# bpy.context.view_layer.objects.active = obj",
+            "# bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)",
             "",
             "# 创建线框材质",
             f'mat = bpy.data.materials.new(name="{name}_wireframe_material")',

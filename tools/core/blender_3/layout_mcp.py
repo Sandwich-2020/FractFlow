@@ -139,25 +139,14 @@ def create_layout_guide(
             "occupied_by": ""
         }
         
-        # 创建引导线
+        # 创建引导线（包含旋转）
         result = primitive.create_guide_cube(
             name=guide_name,
             location=location,
             dimensions=dimensions,
-            metadata=metadata
+            metadata=metadata,
+            rotation=rotation
         )
-        
-        # 如果有旋转，应用旋转
-        if rotation != [0, 0, 0]:
-            primitive.blender.send_command("execute_code", {
-                "code": f"""
-import bpy
-obj = bpy.data.objects.get("{guide_name}")
-if obj:
-    obj.rotation_euler = ({rotation[0]}, {rotation[1]}, {rotation[2]})
-    print(f"已应用旋转: {rotation}")
-"""
-            })
         
         return result
         
