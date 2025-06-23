@@ -103,7 +103,8 @@ def create_layout_guide(
     dimensions: List[float],
     semantic_id: str = "",
     design_intent: str = "",
-    rotation: List[float] = [0, 0, 0]
+    rotation: List[float] = [0, 0, 0],
+    rotation_mode: str = "XYZ"
 ) -> str:
     """
     创建布局引导线
@@ -115,6 +116,7 @@ def create_layout_guide(
         semantic_id: 语义ID (可选，如不提供会自动生成)
         design_intent: 设计意图描述 (可选)
         rotation: 旋转 [x, y, z] (弧度，可选，默认[0,0,0])
+        rotation_mode: 旋转模式 (可选，默认"XYZ")
     
     Returns:
         str - 创建结果的自然语言描述
@@ -130,13 +132,18 @@ def create_layout_guide(
         # 生成对象名称
         guide_name = f"LAYOUT_GUIDE_{semantic_id}"
         
-        # 构建元数据
+        # 构建扩展的元数据
         metadata = {
             "semantic_id": semantic_id,
             "item_type": guide_type,
             "design_intent": design_intent,
             "occupied": False,
-            "occupied_by": ""
+            "occupied_by": "",
+            # 新增旋转相关字段
+            "rotation_mode": rotation_mode,
+            "rotation_representation": "euler" if rotation_mode != "QUATERNION" else "quaternion",
+            "rotation_semantic": design_intent,  # 语义化旋转描述
+            "rotation_value": rotation
         }
         
         # 创建引导线（包含旋转）

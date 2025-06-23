@@ -491,28 +491,53 @@ else:
         return self.send_command("execute_code", {"code": script})
     
     def rotate_object(self, name, rotation_euler):
-        """旋转对象
+        """旋转对象（向后兼容的欧拉角接口）
         
         Parameters:
             name: 对象名称
             rotation_euler: 欧拉角旋转 [x, y, z] (弧度)
         """
+        return self.rotate_object_unified(name, rotation_euler, 'XYZ')
+    
+    def rotate_object_unified(self, name, rotation_value, rotation_mode='XYZ', force_mode=None):
+        """统一旋转对象接口
+        
+        Parameters:
+            name: 对象名称
+            rotation_value: 旋转值列表
+            rotation_mode: 旋转值的模式
+            force_mode: 强制对象使用的旋转模式
+        """
         script = f"""
 import bpy
+import sys
+import json
+
+# 导入RotationManager
+sys.path.append('/Users/yingcongchen/Documents/code/AI原生开发/EnvisionCore-evolve/FractFlow/tools/core/blender_3')
+from rotation_manager import rotation_manager
 
 obj = bpy.data.objects.get("{name}")
 if not obj:
-    print("✗ 未找到对象")
+    print(json.dumps({{"success": False, "error": "未找到对象"}}))
 else:
-    old_rotation = [obj.rotation_euler.x, obj.rotation_euler.y, obj.rotation_euler.z]
-    obj.rotation_euler = ({rotation_euler[0]}, {rotation_euler[1]}, {rotation_euler[2]})
+    # 获取旋转前的状态
+    old_mode = rotation_manager.detect_rotation_mode(obj)
+    old_rotation, _ = rotation_manager.get_rotation_value(obj)
     
-    import json
-    result = {{
-        'object': obj.name,
-        'old_rotation': old_rotation,
-        'new_rotation': [{rotation_euler[0]}, {rotation_euler[1]}, {rotation_euler[2]}]
-    }}
+    # 使用RotationManager设置旋转
+    result = rotation_manager.set_rotation_unified(
+        obj, 
+        {rotation_value}, 
+        "{rotation_mode}",
+        "{force_mode}" if "{force_mode}" != "None" else None
+    )
+    
+    # 添加额外信息
+    if result['success']:
+        result['old_mode'] = old_mode
+        result['old_rotation'] = old_rotation
+    
     print(json.dumps(result))
 """
         
@@ -604,13 +629,13 @@ print(json.dumps(result, ensure_ascii=False))
             return raw_data  # 如果是错误信息，直接返回
     
     def get_guide_info_by_semantic_id(self, semantic_id):
-        """根据语义ID获取引导线信息，返回原始数据让LLM分析"""
+        """获取引导线信息，提供原始数据让LLM自主分析匹配"""
         guides_data = self.get_raw_guides_data()
         
-        if isinstance(guides_data, dict) and 'guides' in guides_data:
-            return f"✓ 查找语义ID '{semantic_id}' 的引导线信息：\n所有引导线原始数据：{guides_data}"
+        if isinstance(guides_data, dict):
+            return f"引导线数据查询 (查找: '{semantic_id}'):\n{json.dumps(guides_data, ensure_ascii=False, indent=2)}"
         else:
-            return f"✗ 无法获取引导线数据：{guides_data}"
+            return f"无法获取引导线数据: {guides_data}"
     
     def find_empty_guides(self, item_type=""):
         """查找空置引导线，返回原始数据让LLM分析"""
