@@ -9,6 +9,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Tuple
 from contextlib import AsyncExitStack
+import sys
 
 # 导入外部MCP库
 import mcp  
@@ -48,7 +49,7 @@ class MCPClientPool:
         try:
             # Connect to the MCP server using stdio
             server_params = StdioServerParameters(
-                command="python",
+                command=sys.executable,
                 args=[server_script_path],
                 env=None
             )
