@@ -855,8 +855,9 @@ class ToolCallHelper_v2:
                 for param_name, param_value in arguments.items():
                     # If parameter exists in tool definition
                     if param_name in valid_params:
-                        # Optimize large parameter values
-                        if isinstance(param_value, str) and len(param_value) > 100:
+                        # Optimize extremely large parameter values (increased threshold)
+                        # Only optimize if parameter is extremely large (>10000 chars) to avoid truncation issues
+                        if isinstance(param_value, str) and len(param_value) > 10000:
                             param_id = f"PARAM_{len(param_value_map)}"
                             param_value_map[param_id] = param_value
                             valid_args[param_name] = param_id

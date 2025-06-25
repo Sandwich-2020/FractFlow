@@ -54,7 +54,7 @@ class ConfigManager:
         tool_calling_max_retries: int = 5,
         tool_calling_base_url: str = 'https://api.deepseek.com',
         tool_calling_model: str = 'deepseek-chat',
-        tool_calling_version: str = 'stable',
+        tool_calling_version: str = 'turbo',
         tool_calling_temperature: float = 0,
     ):
         """
