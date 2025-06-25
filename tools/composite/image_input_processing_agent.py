@@ -84,17 +84,26 @@ class ImageInputProcessingAgent(ToolTemplate):
 - 再 输出完整 Script（顶层含房屋结构层 "room" 与布局层 "layout" 两段）。
 - 确保每条 Script 均含 必要属性。
 
+**阶段7 Script 自动保存
+将Script分步保存JSON
+    a) 使用create_jsonfile创建基础文件结构
+    b) 使用append_to_jsonfile逐步添加内容
+    c) 最终验证文件完整性
+    d) 保存完成后告知用户文件路径
+
 🔧 工具约束
 1. 必须 调用 detect_and_crop_objects，严禁跳过检测直接分析原图。
 2. 不得分析置信度 < 0.30 的检测框。
 3. 同一路径只分析一次，避免重复。
 4. 如检测为空 → 向用户说明“未检测到可用对象”。
 5. 当没有图像输入时从零开始设计。
+6. 必须 调用create_jsonfile工具将Script保存为json文件，采用分段写入策略，避免单次工具调用参数超过合理长度限制
 """
 
     TOOLS = [ 
         ("tools/core/visual_question_answer/vqa_mcp.py", "visual_question_answering_operations"),
-        ("tools/core/grounding_dino/grounding_dino_mcp.py", "grounding_dino_operations")
+        ("tools/core/grounding_dino/grounding_dino_mcp.py", "grounding_dino_operations"),
+        ("tools/core/file_io/file_io_mcp.py", "file_operations")
         ]
 
     MCP_SERVER_NAME = "image_input_processing_tool"
@@ -135,7 +144,7 @@ class ImageInputProcessingAgent(ToolTemplate):
             deepseek_model='deepseek-chat',
             max_iterations=20,  # Increased for multimodal tool coordination
             custom_system_prompt=cls.SYSTEM_PROMPT,
-            tool_calling_version='stable'
+            tool_calling_version='turbo'
         )
     
 if __name__ == "__main__":

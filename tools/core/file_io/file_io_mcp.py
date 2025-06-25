@@ -1,8 +1,9 @@
 import os
 import pathlib
-from typing import List, Dict, Union, Optional, Tuple
+from typing import List, Dict, Union, Optional, Tuple, Any
 import re
 from mcp.server.fastmcp import FastMCP
+import json
 
 # Initialize MCP server
 mcp = FastMCP("file_io_tool")
@@ -579,6 +580,117 @@ def append_to_file(file_path: str, content: str) -> Dict[str, Union[bool, str]]:
             "success": False,
             "error": str(e),
             "message": f"Error appending to file: {str(e)}"
+        }
+
+@mcp.tool()
+def create_jsonfile(file_path: str, content: Dict[str, Any]) -> Dict[str, Union[bool, str]]:
+    """
+    Creates a new JSON file or overwrites an existing one with the provided dict.
+
+    Parameters:
+        file_path: str  – Absolute or relative path to the JSON file.
+        content: dict   – Python dict that will be serialized to JSON.
+
+    Notes:
+        - Creates parent directories if they don't exist.
+        - ALWAYS overwrites the file if it already exists (no confirmation).
+        - Serializes using `json.dump(content, fp, ensure_ascii=False, indent=2)`.
+        - For appending/merging instead of overwriting, use append_to_jsonfile.
+
+    Returns:
+        {
+            "success": bool,
+            "path": str,      # Normalized absolute path
+            "message": str,   # Success / error description
+            "error": str      # Error type (only on failure)
+        }
+    """
+    try:
+        path = normalize_path(file_path)
+        ensure_parent_directory(path)
+
+        with open(path, 'w', encoding='utf-8') as fp:
+            json.dump(content, fp, ensure_ascii=False, indent=2)
+
+        return {
+            "success": True,
+            "path": path,
+            "message": f"JSON file written successfully: {path}"
+        }
+    except PermissionError:
+        return {
+            "success": False,
+            "error": "Permission denied",
+            "message": f"Cannot write to file due to permission issues: {path}."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Error writing JSON file: {str(e)}"
+        }
+
+
+@mcp.tool()
+def append_to_jsonfile(file_path: str, content: Dict[str, Any]) -> Dict[str, Union[bool, str]]:
+    """
+    Appends/merges a dict into an existing JSON file, or creates the file if absent.
+
+    Behaviour:
+        - If file doesn't exist → behaves like create_jsonfile.
+        - If file exists and contains:
+            * dict  → shallow-update with new keys (new values overwrite duplicates).
+            * list  → append new dict as an element at the end.
+            * other → raises error (unsupported type).
+
+    Parameters:
+        file_path: str  – Absolute or relative path to the JSON file.
+        content: dict   – Python dict to merge/append.
+
+    Returns:
+        Same structure as create_jsonfile.
+    """
+    try:
+        path = normalize_path(file_path)
+        ensure_parent_directory(path)
+
+        # Read existing content if any
+        existing_data = None
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            with open(path, 'r', encoding='utf-8') as fp:
+                existing_data = json.load(fp)
+
+        # Determine merging strategy
+        if existing_data is None:
+            merged_data = content  # brand-new file
+        elif isinstance(existing_data, dict):
+            merged_data = {**existing_data, **content}
+        elif isinstance(existing_data, list):
+            existing_data.append(content)
+            merged_data = existing_data
+        else:
+            raise TypeError("Existing JSON root is neither dict nor list; manual fix required.")
+
+        # Write back to disk
+        with open(path, 'w', encoding='utf-8') as fp:
+            json.dump(merged_data, fp, ensure_ascii=False, indent=2)
+
+        return {
+            "success": True,
+            "path": path,
+            "message": f"JSON content appended/merged successfully: {path}"
+        }
+    except PermissionError:
+        return {
+            "success": False,
+            "error": "Permission denied",
+            "message": f"Cannot modify file due to permission issues: {path}."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Error appending to JSON file: {str(e)}"
         }
 
 
