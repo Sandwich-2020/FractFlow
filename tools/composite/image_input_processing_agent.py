@@ -43,7 +43,7 @@ class ImageInputProcessingAgent(ToolTemplate):
 {
   "id": "sofa_L1",                     /* 唯一标识：category_序号 */
   "category": "sofa",                  /* 物体类别 */
-  "position": { "x": 1.2, "y": 3.0, "z": 0.425 },
+  "position": { "x": 1.2, "y": 3.0, "z": 0.425 },       /* 物体几何中心坐标 */
   "size":     { "length": 2.2, "width": 0.9, "height": 0.85 },
   "rotation": { "yaw": 90 },           /* 水平顺时针角度，单位 ° */
   "description": "浅灰色布艺三人位，极简直线造型，金属细腿，北欧风",
