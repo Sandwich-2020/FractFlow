@@ -14,7 +14,7 @@ def create_model(provider: Optional[str] = None, config: Optional[ConfigManager]
     Factory function to create an appropriate model based on the provider.
     
     Args:
-        provider: The AI provider to use (e.g., 'openai', 'deepseek', 'qwen')
+        provider: The AI provider to use (e.g., 'openai', 'deepseek', 'openrouter', 'qwen')
         config: Configuration manager instance to use
         
     Returns:
@@ -48,6 +48,11 @@ def create_model(provider: Optional[str] = None, config: Optional[ConfigManager]
         from .qwen_model import QwenModel
         model = QwenModel(config=config)
         logger.info(f"Created Qwen model")
+        return model
+    elif provider == 'openrouter':
+        from .openrouter_model import OpenRouterModel
+        model = OpenRouterModel(config=config)
+        logger.info(f"Created OpenRouter model")
         return model
     elif provider == 'openai':
         # Note: This part would be properly implemented when OpenAIModel is created

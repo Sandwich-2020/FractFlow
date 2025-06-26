@@ -69,12 +69,16 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 COMPLETION_API_KEY=your_openai_api_key_here
 
+# OpenRouter API 密钥（统一访问多种模型）
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
 # Qwen API 密钥（阿里云通义千问）
 QWEN_API_KEY=your_qwen_api_key_here
 
 # 可选：自定义 API 基础 URL
 # DEEPSEEK_BASE_URL=https://api.deepseek.com
 # OPENAI_BASE_URL=https://api.openai.com/v1
+# OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```
 
 ### API 密钥获取
@@ -89,6 +93,12 @@ QWEN_API_KEY=your_qwen_api_key_here
 2. 创建 API 密钥
 3. 设置 `OPENAI_API_KEY` 和 `COMPLETION_API_KEY` 环境变量
 4. **注意**：图像生成功能需要 OpenAI API 密钥
+
+#### OpenRouter
+1. 访问 [OpenRouter 平台](https://openrouter.ai/)
+2. 注册账户并获取 API 密钥
+3. 设置 `OPENROUTER_API_KEY` 环境变量
+4. **注意**：OpenRouter 通过单一 API 提供对多种 AI 模型的统一访问
 
 #### Qwen（可选）
 1. 访问 [阿里云 DashScope](https://dashscope.console.aliyun.com/)
