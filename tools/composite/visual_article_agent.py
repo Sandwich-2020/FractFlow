@@ -130,7 +130,7 @@ Input format:
         load_dotenv()
         return ConfigManager(
             provider='openrouter',
-            deepseek_model='openai/chatgpt-4o-latest',
+            openrouter_model='openai/chatgpt-4o-latest',
             max_iterations=50,  # Visual article generation requires many steps
             custom_system_prompt=cls.SYSTEM_PROMPT,
             tool_calling_version='stable'
