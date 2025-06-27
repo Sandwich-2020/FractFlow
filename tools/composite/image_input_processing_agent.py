@@ -32,9 +32,13 @@ class ImageInputProcessingAgent(ToolTemplate):
 **阶段 3 逐裁剪图像精细分析**  
 对 `cropped_images` 中的每张图再次用 VLM / VQA：  
 - 判定 `category`（sofa、table、chair、bed、lamp …）。  
-- 估算 **尺寸**（长 / 宽 / 高，单位 m）与 **位置**（相对房间原点），  
-  默认房间地面为 `z = 0`，几何中心为 `position`。  
-- 识别主要材质、⾊彩、造型，写入 `description`。  
+- **判断落地状态**：物体是否直接接触地面（落地家具）、放置在其他物体上（桌面物品）、悬挂安装（吊灯、壁画）等。  
+- 估算 **尺寸**（长 / 宽 / 高，单位 m）与 **位置**（相对房间原点）：  
+  * 默认房间地面为 `z = 0`，`position` 为物体底部中心坐标  
+  * 落地物体：z = 0（底部直接接触地面）  
+  * 桌面物品：z = 桌面高度（物体底部接触桌面的高度）  
+  * 悬挂/墙面物品：z = 物体底部离地的实际高度  
+- 在 `description` **开头** 明确标注落地状态：`[落地]` 或 `[桌面]` 或 `[悬挂]` 或 `[墙面]`，然后描述主要材质、⾊彩、造型。  
 - 将裁剪图本地路径写入 `image_reference`。  
 
 **阶段 4 布局层 Script 条目生成**  
@@ -43,11 +47,31 @@ class ImageInputProcessingAgent(ToolTemplate):
 {
   "id": "sofa_L1",                     /* 唯一标识：category_序号 */
   "category": "sofa",                  /* 物体类别 */
-  "position": { "x": 1.2, "y": 3.0, "z": 0.425 },       /* 物体几何中心坐标 */
+  "position": { "x": 1.2, "y": 3.0, "z": 0 },           /* 物体底部中心坐标 */
   "size":     { "length": 2.2, "width": 0.9, "height": 0.85 },
   "rotation": { "yaw": 90 },           /* 水平顺时针角度，单位 ° */
-  "description": "浅灰色布艺三人位，极简直线造型，金属细腿，北欧风",
+  "description": "[落地] 浅灰色布艺三人位，极简直线造型，金属细腿，北欧风",
   "image_reference": "/crops/sofa_L1.jpg"
+}
+
+/* 更多示例 */
+{
+  "id": "lamp_T1",
+  "category": "table_lamp", 
+  "position": { "x": 2.1, "y": 1.5, "z": 0.75 },        /* 桌面物品：z=桌面高度 */
+  "size": { "length": 0.3, "width": 0.3, "height": 0.45 },
+  "rotation": { "yaw": 0 },
+  "description": "[桌面] 白色陶瓷台灯，圆形灯罩，现代简约风格",
+  "image_reference": "/crops/lamp_T1.jpg"
+},
+{
+  "id": "light_C1", 
+  "category": "ceiling_light",
+  "position": { "x": 2.5, "y": 2.5, "z": 2.4 },         /* 悬挂物品：z=底部离地高度 */
+  "size": { "length": 0.6, "width": 0.6, "height": 0.2 },
+  "rotation": { "yaw": 0 },
+  "description": "[悬挂] 圆形LED吸顶灯，白色亚克力材质，现代风格", 
+  "image_reference": "/crops/light_C1.jpg"
 }
 依次编号，汇总为数组 "layout": [ … ]，嵌入最外层脚本。
 
