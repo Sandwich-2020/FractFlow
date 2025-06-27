@@ -69,12 +69,16 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 COMPLETION_API_KEY=your_openai_api_key_here
 
+# OpenRouter API Key (for unified access to multiple models)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
 # Qwen API Key (Alibaba Cloud Tongyi Qianwen)
 QWEN_API_KEY=your_qwen_api_key_here
 
 # Optional: Custom API Base URLs
 # DEEPSEEK_BASE_URL=https://api.deepseek.com
 # OPENAI_BASE_URL=https://api.openai.com/v1
+# OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```
 
 ### API Key Acquisition
@@ -89,6 +93,12 @@ QWEN_API_KEY=your_qwen_api_key_here
 2. Create API key
 3. Set `OPENAI_API_KEY` and `COMPLETION_API_KEY` environment variables
 4. **Note**: Image generation functionality requires OpenAI API key
+
+#### OpenRouter
+1. Visit [OpenRouter Platform](https://openrouter.ai/)
+2. Register an account and obtain API key
+3. Set `OPENROUTER_API_KEY` environment variable
+4. **Note**: OpenRouter provides unified access to multiple AI models through a single API
 
 #### Qwen (Optional)
 1. Visit [Alibaba Cloud DashScope](https://dashscope.console.aliyun.com/)

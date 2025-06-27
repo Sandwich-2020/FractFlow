@@ -38,6 +38,13 @@ class ConfigManager:
         openai_max_tokens: int = 4096,
         openai_temperature: float = 1.0,
         
+        # OpenRouter配置
+        openrouter_api_key: Optional[str] = None,
+        openrouter_base_url: str = 'https://openrouter.ai/api/v1',
+        openrouter_model: str = 'openai/gpt-4o',
+        openrouter_max_tokens: int = 4096,
+        openrouter_temperature: float = 1.0,
+        
         # Qwen配置
         qwen_api_key: Optional[str] = None,
         qwen_base_url: str = 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -73,6 +80,11 @@ class ConfigManager:
             openai_tool_calling_model: OpenAI工具调用专用模型
             openai_max_tokens: OpenAI最大token数
             openai_temperature: OpenAI温度参数
+            openrouter_api_key: OpenRouter API密钥，从环境变量OPENROUTER_API_KEY自动读取
+            openrouter_base_url: OpenRouter API基础URL
+            openrouter_model: OpenRouter模型名称，推荐: 'openai/gpt-4o'
+            openrouter_max_tokens: OpenRouter最大token数
+            openrouter_temperature: OpenRouter温度参数
             qwen_api_key: Qwen API密钥，从环境变量QWEN_API_KEY自动读取
             qwen_base_url: Qwen API基础URL
             qwen_model: Qwen模型名称
@@ -92,6 +104,8 @@ class ConfigManager:
             deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')
         if openai_api_key is None:
             openai_api_key = os.getenv('COMPLETION_API_KEY')
+        if openrouter_api_key is None:
+            openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
         if qwen_api_key is None:
             qwen_api_key = os.getenv('QWEN_API_KEY')
         
@@ -111,6 +125,13 @@ class ConfigManager:
                 'model': deepseek_model,
                 'max_tokens': deepseek_max_tokens,
                 'temperature': deepseek_temperature,
+            },
+            'openrouter': {
+                'api_key': openrouter_api_key,
+                'base_url': openrouter_base_url,
+                'model': openrouter_model,
+                'max_tokens': openrouter_max_tokens,
+                'temperature': openrouter_temperature,
             },
             'qwen': {
                 'api_key': qwen_api_key,

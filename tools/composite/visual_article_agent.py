@@ -101,7 +101,8 @@ class VisualArticleTool(ToolTemplate):
     # 分形智能体：调用其他智能体
     TOOLS = [
         ("tools/core/file_io/file_io_mcp.py", "file_manager_agent"),
-        ("tools/core/comfyui/comfyui_agent.py", "image_creator_agent")
+        ("tools/core/gpt_imagen/gpt_imagen_mcp.py", "image_creator_agent")
+        # ("tools/core/comfyui/comfyui_agent.py", "image_creator_agent")
     ]
     
     MCP_SERVER_NAME = "visual_article_tool"
@@ -128,8 +129,8 @@ Input format:
         
         load_dotenv()
         return ConfigManager(
-            provider='deepseek',
-            deepseek_model='deepseek-chat',
+            provider='openrouter',
+            openrouter_model='openai/chatgpt-4o-latest',
             max_iterations=50,  # Visual article generation requires many steps
             custom_system_prompt=cls.SYSTEM_PROMPT,
             tool_calling_version='stable'
