@@ -23,10 +23,11 @@ class ImageInputProcessingAgent(ToolTemplate):
 ========================  
 **阶段 1 整体风格洞察**  
 1. 用 VLM 对整幅图做整体感知：识别装饰⻛格（现代简约、北欧等）、⾊彩基调、光照特征、材质倾向。  
-2. 生成 ≤ 120 字的「全局⻛格摘要」。  
+2. 识别图像中的物体
+3. 生成 ≤ 120 字的「全局⻛格摘要」。  
 
 **阶段 2 对象检测与自动裁剪**  
-1. 调用 `detect_and_crop_objects` → 返回 `JSON`（含 `cropped_images` 路径）。  
+1. 调用 `detect_and_crop_objects`, **输入query: 图像中的物体名称** → 返回 `JSON`（含 `cropped_images` 路径）。  
 2. 仅保留 `box_threshold ≥ 0.30` 的结果；删除重复或重叠 > 70 % 的框。  
 
 **阶段 3 逐裁剪图像精细分析**  
@@ -38,7 +39,7 @@ class ImageInputProcessingAgent(ToolTemplate):
   * 落地物体：z = 0（底部直接接触地面）  
   * 桌面物品：z = 桌面高度（物体底部接触桌面的高度）  
   * 悬挂/墙面物品：z = 物体底部离地的实际高度  
-- 在 `description` **开头** 明确标注落地状态：`[落地]` 或 `[桌面]` 或 `[悬挂]` 或 `[墙面]`，然后描述主要材质、⾊彩、造型。  
+- 在 `description` **开头** 明确标注落地状态：`[Floor]` 或 `[Tabletop]` 或 `[Hanging]`，然后描述主要材质、⾊彩、造型。  
 - 将裁剪图本地路径写入 `image_reference`。  
 
 **阶段 4 布局层 Script 条目生成**  
@@ -50,10 +51,9 @@ class ImageInputProcessingAgent(ToolTemplate):
   "position": { "x": 1.2, "y": 3.0, "z": 0 },           /* 物体底部中心坐标 */
   "size":     { "length": 2.2, "width": 0.9, "height": 0.85 },
   "rotation": { "yaw": 90 },           /* 水平顺时针角度，单位 ° */
-  "description": "[落地] 浅灰色布艺三人位，极简直线造型，金属细腿，北欧风",
+  "description": "[Floor] Light gray fabric three-seater sofa with minimalist straight-line design, slim metal legs, Scandinavian style",
   "image_reference": "/crops/sofa_L1.jpg"
 }
-
 /* 更多示例 */
 {
   "id": "lamp_T1",
@@ -61,7 +61,7 @@ class ImageInputProcessingAgent(ToolTemplate):
   "position": { "x": 2.1, "y": 1.5, "z": 0.75 },        /* 桌面物品：z=桌面高度 */
   "size": { "length": 0.3, "width": 0.3, "height": 0.45 },
   "rotation": { "yaw": 0 },
-  "description": "[桌面] 白色陶瓷台灯，圆形灯罩，现代简约风格",
+  "description": "[Tabletop] White ceramic table lamp with a round lampshade, modern minimalist style",
   "image_reference": "/crops/lamp_T1.jpg"
 },
 {
@@ -70,13 +70,13 @@ class ImageInputProcessingAgent(ToolTemplate):
   "position": { "x": 2.5, "y": 2.5, "z": 2.4 },         /* 悬挂物品：z=底部离地高度 */
   "size": { "length": 0.6, "width": 0.6, "height": 0.2 },
   "rotation": { "yaw": 0 },
-  "description": "[悬挂] 圆形LED吸顶灯，白色亚克力材质，现代风格", 
+  "description": "[Hanging] Round LED ceiling light made of white acrylic, modern style", 
   "image_reference": "/crops/light_C1.jpg"
 }
 依次编号，汇总为数组 "layout": [ … ]，嵌入最外层脚本。
 
 **阶段 5 房屋结构层 Script 条目生成**
-- 房屋结构层包含walls、doors、windows三个类别
+- 房屋结构层 必须 包含walls、doors、windows三个类别
 - wall → 估计 `start`/`end`(x,y) 直线、`height` ，输出格式：
   "walls": [
       {
