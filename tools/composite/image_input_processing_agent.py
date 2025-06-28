@@ -39,8 +39,9 @@ class ImageInputProcessingAgent(ToolTemplate):
   * 落地物体：z = 0（底部直接接触地面）  
   * 桌面物品：z = 桌面高度（物体底部接触桌面的高度）  
   * 悬挂/墙面物品：z = 物体底部离地的实际高度  
-- 在 `description` **开头** 明确标注落地状态：`[Floor]` 或 `[Tabletop]` 或 `[Hanging]`，然后描述主要材质、⾊彩、造型。  
-- 将裁剪图本地路径写入 `image_reference`。  
+- 在 `description` **开头** 明确标注落地状态：`[Floor]` 或 `[Tabletop]` 或 `[Hanging]`，然后描述主要材质、⾊彩、造型。
+- `description` 必须 使用英文
+- 将裁剪图本地路径写入 `image_reference`。
 
 **阶段 4 布局层 Script 条目生成**  
 为每个对象输出如下 JSON 结构（示例）：  
