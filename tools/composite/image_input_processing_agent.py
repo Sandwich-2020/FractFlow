@@ -102,19 +102,18 @@ class ImageInputProcessingAgent(ToolTemplate):
       }
     ]
 - window → 估计 'wall_id' 为对应墙体的 id， `position`(x,y,z) 为洞口中心，`size`(width,height)。  
-- 统一写入 `description`（⻛格、颜色、材质），`image_reference` 为空。
+- 统一写入 `description`（⻛格、颜色、材质）。
 
-**阶段 6 结果汇总与输出
+**阶段 6 结果汇总与输出**
 - 先输出「全局⻛格摘要」。
 - 再 输出完整 Script（顶层含房屋结构层 "room" 与布局层 "layout" 两段）。
 - 确保每条 Script 均含 必要属性。
 
-**阶段7 Script 自动保存
-将Script分步保存JSON
-    a) 使用create_jsonfile创建基础文件结构
-    b) 使用append_to_jsonfile逐步添加内容
-    c) 最终验证文件完整性
-    d) 保存完成后告知用户文件路径
+**阶段7 Script 自动保存**
+- 初始化：统计待写入条目数。
+- 分段写入：逐条调用 append_to_jsonfile。每写一次立即读取文件：确认新 ID 已落盘；若缺失则重写；检测到重复则跳过。
+- 终检与补齐：写完后再次读取：若 读取条目数量 < 待写入条目数，自动找出缺失 ID 并补写，直至一致。
+- 完整性验证与反馈：若数量匹配则视为成功；否则抛出错误。成功后向用户报告文件路径与实际保存条目数。
 
 🔧 工具约束
 1. 必须 调用 detect_and_crop_objects，严禁跳过检测直接分析原图。
@@ -122,7 +121,8 @@ class ImageInputProcessingAgent(ToolTemplate):
 3. 同一路径只分析一次，避免重复。
 4. 如检测为空 → 向用户说明“未检测到可用对象”。
 5. 当没有图像输入时从零开始设计。
-6. 必须 调用create_jsonfile工具将Script保存为json文件，采用分段写入策略，避免单次工具调用参数超过合理长度限制
+6. 必须 保存Script为Json文件
+- 调用create_jsonfile工具将Script保存为json文件，append_to_jsonfile采用分段写入策略，避免单次工具调用参数超过合理长度限制
 """
 
     TOOLS = [ 
@@ -167,7 +167,7 @@ class ImageInputProcessingAgent(ToolTemplate):
         return ConfigManager(
             provider='deepseek',
             deepseek_model='deepseek-chat',
-            max_iterations=20,  # Increased for multimodal tool coordination
+            max_iterations=30,  # Increased for multimodal tool coordination
             custom_system_prompt=cls.SYSTEM_PROMPT,
             tool_calling_version='turbo'
         )
