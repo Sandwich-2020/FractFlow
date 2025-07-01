@@ -183,12 +183,12 @@ def read_json(json_path: str) -> str:
             data = json.load(f)
         
         # 检查JSON结构
-        if 'layout' not in data or 'objects' not in data['layout']:
-            return "错误：JSON文件格式不正确，缺少layout.objects字段"
+        if 'layout' not in data :
+            return "错误：JSON文件格式不正确"
         
         # 解析objects并转换坐标
         bbox_dict = {}
-        for obj in data['layout']['objects']:
+        for obj in data['layout']:
             # 提取基本信息
             obj_id = obj['id']
             position = obj['position']  # {x, y, z} - 中心位置
@@ -243,7 +243,7 @@ def scale_object_location(object_dict:dict,rescale_size: dict) -> str:
     return object_dict
 
 @mcp.tool()
-def calcute_rescale_size(bbox1: List[float], bbox2: List[float],overlap_length: List[float], ratio:float) -> dict:
+def calcute_rescale_size(bbox1: List[float], bbox2: List[float],overlap_length: List[float], ratio:float = 0.5) -> dict:
     """
     bbox1: 第一个边界框 [x, y, z, dx, dy, dz]，其中(x,y,z)是中心点，(dx,dy,dz)是各轴向的长度
     bbox2: 第二个边界框 [x, y, z, dx, dy, dz]
@@ -253,7 +253,9 @@ def calcute_rescale_size(bbox1: List[float], bbox2: List[float],overlap_length: 
         dict: 放缩尺寸 rescale_size1，rescale_size2
     """
     # 提取两个边界框的尺寸
-    ratio = 0.5
+    # 如果没有传入ratio或ratio无效，使用默认值0.5
+    if ratio <= 0 or ratio >= 1:
+        ratio = 0.5
     dx1, dy1, dz1 = bbox1[3], bbox1[4], bbox1[5]  # bbox1的xyz尺寸
     dx2, dy2, dz2 = bbox2[3], bbox2[4], bbox2[5]  # bbox2的xyz尺寸
     

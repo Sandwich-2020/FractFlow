@@ -44,8 +44,7 @@ class OccDetectionTool(ToolTemplate):
     "walls": [...],
     "windows": [...]
   },
-  "layout": {
-    "objects": [
+  "layout": [
       {
         "id": "object_id",
         "category": "furniture_type",
@@ -55,14 +54,13 @@ class OccDetectionTool(ToolTemplate):
         "description": "物体描述"
       }
     ]
-  }
 }
 ```
 
 # 数据解析规则
 - position: {x, y, z} - 物体bbox的中心位置坐标
 - size: {length, width, height} - 分别对应x, y, z方向的边界框长度
-- 只关注layout.objects中的物体，检测它们之间的碰撞关系
+- 只关注layout中的物体，检测它们之间的碰撞关系
 
 # 可用工具
 1. **read_json(json_path)**: 读取JSON文件并转换为bbox格式 [cx,cy,cz,dx,dy,dz]
