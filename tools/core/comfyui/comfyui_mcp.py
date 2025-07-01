@@ -66,23 +66,21 @@ def download_outputs(history: dict, save_directory: str, meta: dict, custom_file
     """下载工作流输出文件到指定目录，支持自定义文件名"""
     save_dir = Path(save_directory)
     save_dir.mkdir(parents=True, exist_ok=True)
-    
+    print("**************************************")
+    print("**************************************")
     saved_files = []
     output_nodes = meta.get('output_nodes', {})
-    
     if not output_nodes:
         raise ValueError("Meta must contain 'output_nodes' definition")
     
     for output_name, output_info in output_nodes.items():
         node_id = output_info['node_id']
         output_type = output_info.get('type', 'images')
-        
         if node_id not in history['outputs']:
             print(f"Warning: Output node '{node_id}' ({output_name}) not found in history")
             continue
         
         node_output = history['outputs'][node_id]
-        
         if output_type in node_output:
             file_list = node_output[output_type]
             
@@ -191,6 +189,7 @@ async def execute_comfyui_workflow(workflow_name: str, save_path: str, parameter
         history = wait_for_completion(prompt_id, client_id)
         
         # 下载文件，传递自定义文件名
+
         saved_files = download_outputs(history[prompt_id], save_directory, meta, custom_filename)
         
         if not saved_files:

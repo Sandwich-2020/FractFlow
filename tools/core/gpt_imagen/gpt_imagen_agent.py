@@ -19,6 +19,7 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 sys.path.append(project_root)
+sys.path.append("/hpc2hdd/home/yxu916/Documents/FractFlow")
 
 # Import the FractFlow ToolTemplate
 from FractFlow.tool_template import ToolTemplate

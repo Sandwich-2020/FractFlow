@@ -66,3 +66,4 @@ model_weights/
 *.local
 local/ 
 output/
+temp/

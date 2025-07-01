@@ -170,4 +170,4 @@ class DeepVisualReasoningAgent(ToolTemplate):
         )
 
 if __name__ == "__main__":
-    DeepVisualReasoningAgent.main() 
+    DeepVisualReasoningAgent.main()
