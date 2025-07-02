@@ -254,8 +254,7 @@ def calcute_rescale_size(bbox1: List[float], bbox2: List[float],overlap_length: 
     """
     # 提取两个边界框的尺寸
     # 如果没有传入ratio或ratio无效，使用默认值0.5
-    if ratio <= 0 or ratio >= 1:
-        ratio = 0.5
+    ratio = 0.5
     dx1, dy1, dz1 = bbox1[3], bbox1[4], bbox1[5]  # bbox1的xyz尺寸
     dx2, dy2, dz2 = bbox2[3], bbox2[4], bbox2[5]  # bbox2的xyz尺寸
     
