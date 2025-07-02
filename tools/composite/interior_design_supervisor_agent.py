@@ -89,20 +89,22 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
    - 检查是否生成了***_plan.json文件
    - 分析plan.json内容，评估碰撞严重程度
 
-5. **智能决策与迭代优化**：
+5. **智能决策与迭代优化（新增直接JSON操作）**：
    ```
    迭代循环（最多3次）：
    如果检测到碰撞：
-     a) 解析***_plan.json文件内容
-     b) 分析缩放比例和碰撞详情：
-        - 缩放比例 ≥ 0.3：可接受，应用缩放方案
-        - 缩放比例 < 0.2：需要重新布局
-        - IOU > 0.5：严重碰撞，必须重新设计
-     c) 构造修改指令给image_input_processing_agent：
-        "之前的layout存在碰撞问题，根据分析：[具体碰撞详情]。
-         请重新调整layout，确保：[具体调整要求]。
-         保存为：[原文件名]_[迭代次数].json"
-     d) 验证新JSON文件生成
+     a) 解析***_plan.json文件内容，提取碰撞物体和调整参数
+     b) 分析缩放比例和碰撞严重程度：
+        - 缩放比例 ≥ 0.3：直接应用缩放修复
+        - 缩放比例 < 0.2：直接应用位置调整修复
+        - IOU > 0.5：严重碰撞，综合调整位置和尺寸
+     c) **直接JSON文件操作**：
+        - 复制原始JSON文件
+        - 只修改碰撞物体的position或size字段
+        - 保持所有非碰撞物体完全不变
+        - 保存为版本化文件：[原文件名]_[迭代次数].json
+        - 验证文件结构完整性
+     d) **降级机制**：如果直接修改失败，降级到agent指令模式
      e) 重新进行碰撞检测
    如果无碰撞：
      - 结束迭代，展示最终结果
@@ -157,28 +159,47 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 3. **第3次迭代**：original_2.json → original_2_plan.json（如有碰撞）→ original_3.json
 4. **最大3次**：如仍有碰撞，保存当前最优结果并告知用户
 
-### 修改指令生成示例
+### 直接JSON修复机制示例
+**优先使用直接JSON操作**：
+```
+检测到碰撞：desk_0 与 chair_0，IOU=0.15，缩放比例=[0.8, 0.85]
+
+自动执行直接修复：
+1. 复制原文件 student_study_room_design.json
+2. 分析：缩放比例 >= 0.3，采用缩放策略
+3. 修改物体尺寸：
+   - desk_0: size.length *= 0.8, size.width *= 0.8, size.height *= 0.8
+   - chair_0: size.length *= 0.85, size.width *= 0.85, size.height *= 0.85
+4. 保持所有其他物体完全不变
+5. 验证JSON结构完整性
+6. 保存为：student_study_room_design_1.json
+```
+
+**降级到指令模式**（仅在直接操作失败时）：
 ```
 基于碰撞检测结果，发现以下问题：
 - desk_0和chair_0发生碰撞，IOU=0.15，重叠尺寸为[0.2, 0.1, 0.0]
 - 建议调整：将chair_0位置从(1.5, 0.8, 0)调整到(1.5, 0.6, 0)，增加0.2m距离
-- sofa_0和bookshelf_0过于接近，建议将sofa_0移动到房间中央位置
 
 请重新生成layout，确保：
 1. desk_0和chair_0之间至少保持0.3m距离
-2. sofa_0重新定位到更合适的位置  
-3. 保持整体布局的功能性和美观性
-4. 保存为：student_study_room_design_1.json
+2. 保持room结构和所有非碰撞物体完全不变
+3. 保存为：student_study_room_design_1.json
 ```
 
-### 错误处理和重试机制
+### 增强错误处理和重试机制
+- **JSON直接操作失败**：自动降级到原有的agent指令模式
+- **文件读取失败**：实施3次重试机制，失败后查找备份文件
+- **JSON结构验证失败**：自动修复缺失字段，无法修复时回滚操作
+- **碰撞修复应用失败**：记录失败原因，尝试替代修复策略
 - image_input_processing_agent调用失败：分析错误原因并重试
 - occ_detection_agent调用失败：跳过碰撞检测，提醒用户手动检查
 - plan.json文件不存在：表示无碰撞，正常结束流程
-- JSON保存失败：指导agent采用分段保存策略
-- 文件损坏或不完整：提示用户重新生成或从备份恢复
-- 网络或工具调用超时：实施智能重试
-- **碰撞检测迭代失败**：保存当前最优结果，向用户报告情况
+- JSON保存失败：实施重试机制，检查磁盘空间和权限
+- 文件损坏或不完整：自动查找最新有效备份文件
+- 网络或工具调用超时：实施智能重试，增加等待时间
+- **版本文件管理**：自动维护最多10个版本的备份文件
+- **碰撞检测迭代失败**：保存当前最优结果，向用户报告详细情况
 
 ## 自然语言交互风格
 - 专业但友好，具备室内设计专业知识
@@ -202,12 +223,22 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 - 记录完整的优化历史便于用户理解改进过程
 
 ## 输出格式要求
-1. **初始分析报告**：layout生成结果
-2. **碰撞检测报告**：详细的碰撞情况和处理建议  
-3. **优化过程记录**：每次迭代的改进情况
-4. **最终结果**：无碰撞的layout和完整JSON文件路径
+1. **初始分析报告**：layout生成结果和文件完整性验证
+2. **碰撞检测报告**：详细的碰撞情况、修复策略选择和执行结果  
+3. **直接修复记录**：每次JSON直接操作的详细日志和验证结果
+4. **优化过程记录**：每次迭代的改进情况、文件版本管理和错误处理
+5. **最终结果**：无碰撞的layout、完整JSON文件路径和质量保证报告
 
-记住：你是流程的监督者和优化者，现在还具备了3D空间碰撞检测能力，不仅要确保技术流程的完整性，更要通过持续对话和自动优化帮助用户获得既美观又实用的室内设计方案。
+## 质量保证增强
+- **文件完整性**：确保每个会话都产生结构完整的JSON文件
+- **数据一致性**：通过直接JSON操作保证非碰撞物体完全不变
+- **版本管理**：维护清晰的文件版本链（original → _1 → _2 → _3）
+- **错误恢复**：具备多层次的错误处理和自动恢复机制
+- **验证机制**：每次修改后自动验证JSON结构和文件可读性
+- **空间合理性**：通过3D碰撞检测确保物理可行性
+- **设计一致性**：保持设计风格和功能性不受修复过程影响
+
+记住：你是流程的监督者和优化者，现在具备了强化的3D空间碰撞检测和直接JSON修复能力，不仅要确保技术流程的完整性和文件操作的可靠性，更要通过精确的数据操作和持续对话帮助用户获得既美观又实用的室内设计方案。
 """
     
     # 分形智能体：调用其他智能体
@@ -488,9 +519,378 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
                 'decision': 'error',
                 'optimization_suggestions': f"碰撞检测失败: {str(e)}"
             }
+
+    def _extract_collision_objects(self, collision_details: Dict) -> List[Dict]:
+        """从collision_details中提取需要调整的物体信息"""
+        collision_fixes = []
+        
+        try:
+            # 查找rescale plan
+            for key, value in collision_details.items():
+                if 'rescale' in key.lower() or 'plan' in key.lower():
+                    plan_details = value
+                    
+                    # 提取碰撞对象和缩放信息
+                    objects = []
+                    scales = {}
+                    collision_meta = {}
+                    
+                    for obj_id, scale_or_details in plan_details.items():
+                        if obj_id == 'collision_details':
+                            collision_meta = scale_or_details
+                        elif isinstance(scale_or_details, (int, float)):
+                            objects.append(obj_id)
+                            scales[obj_id] = scale_or_details
+                    
+                    if len(objects) >= 2:
+                        obj1, obj2 = objects[0], objects[1]
+                        scale1, scale2 = scales.get(obj1, 1.0), scales.get(obj2, 1.0)
+                        iou = collision_meta.get('iou', 0)
+                        overlap_dims = collision_meta.get('overlap_dimensions', [0, 0, 0])
+                        original_sizes = collision_meta.get('original_sizes', {})
+                        
+                        collision_fixes.append({
+                            'objects': [obj1, obj2],
+                            'scales': [scale1, scale2],
+                            'iou': iou,
+                            'overlap_dimensions': overlap_dims,
+                            'original_sizes': original_sizes,
+                            'strategy': 'scale' if min(scale1, scale2) >= 0.2 else 'reposition'
+                        })
+            
+            return collision_fixes
+            
+        except Exception as e:
+            self.log(f"提取碰撞对象信息失败: {str(e)}", "warning")
+            return []
+
+    def _calculate_position_adjustment(self, obj1: Dict, obj2: Dict, overlap_dims: List[float]) -> Dict:
+        """计算位置调整方案，确保物体间距离至少0.3米"""
+        try:
+            # 获取物体位置和尺寸
+            pos1 = obj1['position']
+            size1 = obj1['size']
+            pos2 = obj2['position']
+            size2 = obj2['size']
+            
+            # 计算需要的最小分离距离
+            min_distance = 0.3
+            
+            # 计算两物体中心距离
+            dx = pos2['x'] - pos1['x']
+            dy = pos2['y'] - pos1['y']
+            
+            # 计算需要的安全距离（物体半径 + 最小间距）
+            safe_dist_x = (size1['length'] + size2['length']) / 2 + min_distance
+            safe_dist_y = (size1['width'] + size2['width']) / 2 + min_distance
+            
+            # 决定移动哪个物体（默认移动第二个物体）
+            if abs(dx) > abs(dy):
+                # 主要在X轴方向重叠，调整X坐标
+                if dx > 0:
+                    new_x = pos1['x'] + safe_dist_x
+                else:
+                    new_x = pos1['x'] - safe_dist_x
+                
+                return {
+                    'object_id': obj2['id'],
+                    'new_position': {
+                        'x': new_x,
+                        'y': pos2['y'],
+                        'z': pos2['z']
+                    },
+                    'adjustment_type': 'position',
+                    'reason': f"调整X坐标以避免与{obj1['id']}碰撞"
+                }
+            else:
+                # 主要在Y轴方向重叠，调整Y坐标
+                if dy > 0:
+                    new_y = pos1['y'] + safe_dist_y
+                else:
+                    new_y = pos1['y'] - safe_dist_y
+                
+                return {
+                    'object_id': obj2['id'],
+                    'new_position': {
+                        'x': pos2['x'],
+                        'y': new_y,
+                        'z': pos2['z']
+                    },
+                    'adjustment_type': 'position',
+                    'reason': f"调整Y坐标以避免与{obj1['id']}碰撞"
+                }
+                
+        except Exception as e:
+            self.log(f"计算位置调整失败: {str(e)}", "warning")
+            return {}
+
+    def _apply_collision_fixes(self, layout_objects: List, collision_fixes: List[Dict]) -> List:
+        """应用碰撞修复到layout对象列表"""
+        try:
+            # 创建物体ID到对象的映射
+            obj_map = {obj['id']: obj for obj in layout_objects}
+            
+            for fix in collision_fixes:
+                obj1_id, obj2_id = fix['objects']
+                scale1, scale2 = fix['scales']
+                strategy = fix['strategy']
+                
+                if strategy == 'scale' and min(scale1, scale2) >= 0.2:
+                    # 应用缩放策略
+                    if obj1_id in obj_map:
+                        obj = obj_map[obj1_id]
+                        obj['size']['length'] *= scale1
+                        obj['size']['width'] *= scale1
+                        obj['size']['height'] *= scale1
+                        self.log(f"缩放物体 {obj1_id}: 比例={scale1:.3f}", "info")
+                    
+                    if obj2_id in obj_map:
+                        obj = obj_map[obj2_id]
+                        obj['size']['length'] *= scale2
+                        obj['size']['width'] *= scale2
+                        obj['size']['height'] *= scale2
+                        self.log(f"缩放物体 {obj2_id}: 比例={scale2:.3f}", "info")
+                        
+                elif strategy == 'reposition':
+                    # 应用位置调整策略
+                    if obj1_id in obj_map and obj2_id in obj_map:
+                        obj1 = obj_map[obj1_id]
+                        obj2 = obj_map[obj2_id]
+                        
+                        adjustment = self._calculate_position_adjustment(
+                            obj1, obj2, fix['overlap_dimensions']
+                        )
+                        
+                        if adjustment and adjustment['object_id'] in obj_map:
+                            target_obj = obj_map[adjustment['object_id']]
+                            target_obj['position'].update(adjustment['new_position'])
+                            self.log(f"重新定位物体 {adjustment['object_id']}: {adjustment['reason']}", "info")
+            
+            return layout_objects
+            
+        except Exception as e:
+            self.log(f"应用碰撞修复失败: {str(e)}", "error")
+            return layout_objects
+
+    def _copy_and_modify_json(self, original_file: str, collision_details: Dict, iteration: int) -> Optional[str]:
+        """直接复制并修改JSON文件，只调整碰撞物体的位置/尺寸"""
+        try:
+            # 生成新文件名
+            base_name = os.path.splitext(original_file)[0]
+            new_file_path = f"{base_name}_{iteration}.json"
+            
+            # 读取原始JSON文件
+            read_result = self.call_tool("file_manager_agent", {
+                "query": f"请读取JSON文件内容：{original_file}"
+            })
+            
+            if not read_result:
+                self.log(f"读取原始文件失败: {original_file}", "error")
+                return None
+            
+            # 解析JSON内容
+            try:
+                # 从文件管理器返回结果中提取JSON内容
+                json_content_str = str(read_result)
+                # 寻找JSON内容（通常在结果的某个部分）
+                import re
+                json_match = re.search(r'\{.*\}', json_content_str, re.DOTALL)
+                if not json_match:
+                    self.log("无法从读取结果中提取JSON内容", "error")
+                    return None
+                    
+                original_data = json.loads(json_match.group())
+                
+            except json.JSONDecodeError as e:
+                self.log(f"JSON解析失败: {str(e)}", "error")
+                return None
+            
+            # 确保有layout字段
+            if 'layout' not in original_data:
+                self.log("JSON文件缺少layout字段", "error")
+                return None
+            
+            # 提取碰撞修复信息
+            collision_fixes = self._extract_collision_objects(collision_details)
+            
+            if not collision_fixes:
+                self.log("未找到有效的碰撞修复信息", "warning")
+                return None
+            
+            # 应用碰撞修复
+            modified_layout = self._apply_collision_fixes(original_data['layout'], collision_fixes)
+            original_data['layout'] = modified_layout
+            
+            # 验证修改后的JSON结构
+            if not self._validate_json_structure(original_data, original_data):
+                self.log("修改后的JSON结构验证失败", "error")
+                return None
+            
+            # 保存修改后的JSON文件
+            save_result = self.call_tool("file_manager_agent", {
+                "query": f"请保存JSON数据到文件: {new_file_path}\n内容: {json.dumps(original_data, ensure_ascii=False, indent=2)}"
+            })
+            
+            if save_result:
+                self.log(f"成功保存修改后的JSON文件: {new_file_path}", "info")
+                
+                # 验证保存的文件是否可读
+                if self._check_file_exists(new_file_path):
+                    self.log(f"文件验证通过: {new_file_path}", "info")
+                    return new_file_path
+                else:
+                    self.log(f"保存的文件无法验证: {new_file_path}", "error")
+                    return None
+            else:
+                self.log(f"保存修改后的JSON文件失败", "error")
+                return None
+                
+        except Exception as e:
+            self.log(f"复制和修改JSON文件过程中发生错误: {str(e)}", "error")
+            return None
+
+    def _validate_json_structure(self, json_data: Dict, original_data: Dict) -> bool:
+        """验证修改后的JSON文件结构完整性"""
+        try:
+            # 检查基本结构
+            if not isinstance(json_data, dict):
+                self.log("JSON数据不是字典类型", "error")
+                return False
+            
+            # 检查必要字段
+            required_fields = ['layout']
+            for field in required_fields:
+                if field not in json_data:
+                    self.log(f"缺少必要字段: {field}", "error")
+                    return False
+            
+            # 检查layout是否是列表
+            if not isinstance(json_data['layout'], list):
+                self.log("layout字段不是列表类型", "error")
+                return False
+            
+            # 检查room字段是否保留（如果原始文件有）
+            if 'room' in original_data and 'room' not in json_data:
+                self.log("room字段丢失", "warning")
+                # 补充room字段
+                json_data['room'] = original_data['room']
+            
+            # 检查layout物体数量不能减少
+            original_count = len(original_data.get('layout', []))
+            current_count = len(json_data['layout'])
+            
+            if current_count < original_count:
+                self.log(f"物体数量减少：原有{original_count}个，现在{current_count}个", "warning")
+                return False
+            
+            # 检查每个物体的基本结构
+            for i, obj in enumerate(json_data['layout']):
+                if not isinstance(obj, dict):
+                    self.log(f"第{i}个物体不是字典类型", "error")
+                    return False
+                
+                required_obj_fields = ['id', 'position', 'size']
+                for field in required_obj_fields:
+                    if field not in obj:
+                        self.log(f"第{i}个物体缺少字段: {field}", "error")
+                        return False
+                
+                # 检查position字段
+                pos = obj['position']
+                if not isinstance(pos, dict) or not all(key in pos for key in ['x', 'y', 'z']):
+                    self.log(f"第{i}个物体的position字段格式错误", "error")
+                    return False
+                
+                # 检查size字段
+                size = obj['size']
+                required_size_fields = ['length', 'width', 'height']
+                if not isinstance(size, dict) or not all(key in size for key in required_size_fields):
+                    self.log(f"第{i}个物体的size字段格式错误", "error")
+                    return False
+            
+            self.log("JSON结构验证通过", "info")
+            return True
+            
+        except Exception as e:
+            self.log(f"JSON结构验证失败: {str(e)}", "error")
+            return False
+
+    def _handle_file_operation_error(self, operation: str, file_path: str, error: Exception) -> bool:
+        """处理文件操作错误，实施重试机制"""
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            retry_count += 1
+            self.log(f"文件操作失败，第{retry_count}次重试: {operation} {file_path}", "warning")
+            
+            try:
+                # 等待一段时间后重试
+                time.sleep(1)
+                
+                if operation == "read":
+                    result = self.call_tool("file_manager_agent", {
+                        "query": f"请读取JSON文件内容：{file_path}"
+                    })
+                    if result:
+                        return True
+                elif operation == "write":
+                    # 这里需要额外的数据参数，由调用者处理具体重试逻辑
+                    return False
+                    
+            except Exception as retry_error:
+                self.log(f"重试失败: {str(retry_error)}", "warning")
+                
+        self.log(f"文件操作最终失败，已重试{max_retries}次: {operation} {file_path}", "error")
+        return False
+
+    def _backup_and_recover(self, file_path: str) -> Optional[str]:
+        """备份和恢复机制"""
+        try:
+            # 检查是否存在备份文件
+            backup_candidates = []
+            base_name = os.path.splitext(file_path)[0]
+            
+            # 查找可能的备份文件
+            for i in range(10):  # 最多查找10个版本
+                backup_path = f"{base_name}_{i}.json" if i > 0 else f"{base_name}.json"
+                if self._check_file_exists(backup_path):
+                    backup_candidates.append(backup_path)
+            
+            # 返回最新的有效备份
+            if backup_candidates:
+                latest_backup = backup_candidates[-1]
+                self.log(f"找到备份文件: {latest_backup}", "info")
+                return latest_backup
+            else:
+                self.log("未找到可用的备份文件", "warning")
+                return None
+                
+        except Exception as e:
+            self.log(f"备份恢复失败: {str(e)}", "error")
+            return None
     
-    def _generate_modification_instruction(self, collision_details: Dict, original_file: str, iteration: int) -> str:
-        """基于碰撞检测结果生成修改指令"""
+    def _generate_modification_instruction(self, collision_details: Dict, original_file: str, iteration: int) -> Optional[str]:
+        """基于碰撞检测结果直接修改JSON文件，返回新文件路径"""
+        try:
+            # 直接调用JSON复制和修改方法
+            new_file_path = self._copy_and_modify_json(original_file, collision_details, iteration)
+            
+            if new_file_path:
+                self.log(f"成功生成修正后的JSON文件: {new_file_path}", "info")
+                return new_file_path
+            else:
+                # 如果直接修改失败，降级到原有的指令生成机制
+                self.log("直接JSON修改失败，降级到指令生成模式", "warning")
+                return self._generate_fallback_instruction(collision_details, original_file, iteration)
+                
+        except Exception as e:
+            self.log(f"JSON修改过程中发生错误: {str(e)}", "error")
+            # 降级到原有机制
+            return self._generate_fallback_instruction(collision_details, original_file, iteration)
+
+    def _generate_fallback_instruction(self, collision_details: Dict, original_file: str, iteration: int) -> str:
+        """降级到原有的指令生成机制"""
         try:
             # 解析碰撞详情
             collision_info = []
@@ -590,7 +990,7 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
             return instruction
             
         except Exception as e:
-            self.log(f"指令生成失败: {str(e)}", "warning")
+            self.log(f"降级指令生成失败: {str(e)}", "warning")
             base_name = os.path.splitext(os.path.basename(original_file))[0]
             new_file_name = f"{base_name}_{iteration}.json"
             
@@ -648,43 +1048,59 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
             
             # 需要进行下一轮优化
             if collision_result['decision'] in ['needs_iteration', 'ask_user']:
-                self.log(f"第{iteration}轮检测：发现碰撞，生成修改指令...", "info")
+                self.log(f"第{iteration}轮检测：发现碰撞，执行直接修复...", "info")
                 
-                # 生成修改指令
-                modification_instruction = self._generate_modification_instruction(
+                # 直接修改JSON文件（新方法）
+                new_file_path = self._generate_modification_instruction(
                     collision_result['collision_details'], 
-                    initial_json_file, 
+                    current_file,  # 使用当前文件而不是initial_json_file
                     iteration
                 )
                 
-                # 调用image_input_processing_agent重新设计
-                redesign_result = self.call_tool("imageinputprocessingagent", {
-                    "query": modification_instruction
-                })
-                
-                if not redesign_result:
-                    self.log(f"第{iteration}轮优化失败：无法调用重设计agent", "error")
-                    return {
-                        'success': False,
-                        'final_file': current_file,
-                        'total_iterations': iteration,
-                        'optimization_log': optimization_log,
-                        'final_status': '重设计调用失败'
-                    }
-                
-                # 提取新的JSON文件路径
-                new_file_path = self._extract_file_path_from_response(str(redesign_result))
-                if new_file_path and self._check_file_exists(new_file_path):
+                if new_file_path and isinstance(new_file_path, str) and self._check_file_exists(new_file_path):
+                    # 直接JSON修改成功
                     current_file = new_file_path
-                    self.log(f"第{iteration}轮优化：新文件生成 {new_file_path}", "info")
+                    self.log(f"第{iteration}轮优化：直接修改成功，新文件 {new_file_path}", "info")
+                elif isinstance(new_file_path, str):
+                    # 返回的是指令文本，需要调用image_input_processing_agent
+                    self.log(f"第{iteration}轮检测：降级到指令模式，调用重设计agent...", "info")
+                    
+                    redesign_result = self.call_tool("imageinputprocessingagent", {
+                        "query": new_file_path
+                    })
+                    
+                    if not redesign_result:
+                        self.log(f"第{iteration}轮优化失败：无法调用重设计agent", "error")
+                        return {
+                            'success': False,
+                            'final_file': current_file,
+                            'total_iterations': iteration,
+                            'optimization_log': optimization_log,
+                            'final_status': '重设计调用失败'
+                        }
+                    
+                    # 提取新的JSON文件路径
+                    extracted_path = self._extract_file_path_from_response(str(redesign_result))
+                    if extracted_path and self._check_file_exists(extracted_path):
+                        current_file = extracted_path
+                        self.log(f"第{iteration}轮优化：通过agent生成新文件 {extracted_path}", "info")
+                    else:
+                        self.log(f"第{iteration}轮优化失败：无法找到agent生成的JSON文件", "error")
+                        return {
+                            'success': False,
+                            'final_file': current_file,
+                            'total_iterations': iteration,
+                            'optimization_log': optimization_log,
+                            'final_status': '新JSON文件生成失败'
+                        }
                 else:
-                    self.log(f"第{iteration}轮优化失败：无法找到新生成的JSON文件", "error")
+                    self.log(f"第{iteration}轮优化失败：修改方法返回无效结果", "error")
                     return {
                         'success': False,
                         'final_file': current_file,
                         'total_iterations': iteration,
                         'optimization_log': optimization_log,
-                        'final_status': '新JSON文件生成失败'
+                        'final_status': 'JSON修改失败'
                     }
                 
                 # 等待文件系统同步
