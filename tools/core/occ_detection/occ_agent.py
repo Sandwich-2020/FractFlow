@@ -58,12 +58,12 @@ class OccDetectionTool(ToolTemplate):
 ```
 
 # 数据解析规则
-- position: {x, y, z} - 物体bbox的中心位置坐标
+- position: {x, y, z} - 物体bbox的中心位置坐标，x,y中心点，z是底部最低点，也就是说这个xyz是底部中心点
 - size: {length, width, height} - 分别对应x, y, z方向的边界框长度
 - 只关注layout中的物体，检测它们之间的碰撞关系
 
 # 可用工具
-1. **read_json(json_path)**: 读取JSON文件并转换为bbox格式 [cx,cy,cz,dx,dy,dz]
+1. **read_json(json_path)**: 读取JSON文件并转换为bbox格式 [cx,cy,bz,dx,dy,dz]，其中cx,cy是底部中心点，bz是底部最低点，dx,dy,dz是各轴向的长度
 2. **calculate_3d_iou(bbox1, bbox2)**: 计算两个物体的3D IOU值（bbox格式为中心点），也就是说读取出来的json完全不用改变，直接使用
 3. **scale_object_location(object_dict, rescale_size)**: 调整物体尺寸
 4. **calcute_rescale_size(bbox1, bbox2, overlap_length)**: 计算放缩尺寸
@@ -158,7 +158,7 @@ class OccDetectionTool(ToolTemplate):
 - coffee_table_1 与 armchair_1: 计算iou
 - .....
 一直迭代并且calculate iou，直到所有IOU = 0，如果达到最大迭代次数，那么就输出当前的布局
-最终布局：{id: [cx(中心位置), cy(中心位置), cz(中心位置), dx(长), dy(宽), dz(高)], ...}
+最终布局：{id: [cx(x中心位置), cy(y中心位置), bz(z底部位置), dx(长), dy(宽), dz(高)], ...}
 ```
 """
     

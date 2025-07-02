@@ -82,8 +82,8 @@ def calculate_3d_iou(bbox1: List[float], bbox2: List[float]) -> str:
     计算两个3D边界框的IOU loss，并分析重叠情况
     
     Args:
-        bbox1: 第一个边界框 [cx, cy, cz, dx, dy, dz]，其中(cx,cy,cz)是中心点，(dx,dy,dz)是各轴向的长度
-        bbox2: 第二个边界框 [cx, cy, cz, dx, dy, dz]
+        bbox1: 第一个边界框 [cx, cy, bz, dx, dy, dz]，其中(cx,cy,bz)是底部的中心点，(dx,dy,dz)是各轴向的长度
+        bbox2: 第二个边界框 [cx, cy, bz, dx, dy, dz]
         
     Returns:
         str: 包含IOU值和重叠分析的结果描述
@@ -94,10 +94,10 @@ def calculate_3d_iou(bbox1: List[float], bbox2: List[float]) -> str:
         x2, y2, z2, dx2, dy2, dz2 = bbox2
         
         # 计算每个边界框的最小/最大坐标
-        box1_min = [x1 - dx1/2, y1 - dy1/2, z1 - dz1/2]
-        box1_max = [x1 + dx1/2, y1 + dy1/2, z1 + dz1/2]
-        box2_min = [x2 - dx2/2, y2 - dy2/2, z2 - dz2/2]
-        box2_max = [x2 + dx2/2, y2 + dy2/2, z2 + dz2/2]
+        box1_min = [x1 - dx1/2, y1 - dy1/2, z1]
+        box1_max = [x1 + dx1/2, y1 + dy1/2, z1 + dz1]
+        box2_min = [x2 - dx2/2, y2 - dy2/2, z2]
+        box2_max = [x2 + dx2/2, y2 + dy2/2, z2 + dz2]
         
         # 计算三个轴向的重叠
         overlaps = []
@@ -245,7 +245,7 @@ def scale_object_location(object_dict:dict,rescale_size: dict) -> str:
 @mcp.tool()
 def calcute_rescale_size(bbox1: List[float], bbox2: List[float],overlap_length: List[float], ratio:float = 0.5) -> dict:
     """
-    bbox1: 第一个边界框 [x, y, z, dx, dy, dz]，其中(x,y,z)是中心点，(dx,dy,dz)是各轴向的长度
+    bbox1: 第一个边界框 [x, y, z, dx, dy, dz]，其中(x,y,z)是底部的中心点，(dx,dy,dz)是各轴向的长度
     bbox2: 第二个边界框 [x, y, z, dx, dy, dz]
     overlap_length: 重叠长度 [overlap_x, overlap_y, overlap_z]
     ratio: 缩放比例这个缩放比例是基于重叠长度来缩放的，如果是0.7，那么则是bbox1缩放重叠长度的0.7，bbox2缩放重叠长度的0.3
@@ -297,13 +297,6 @@ def calcute_rescale_size(bbox1: List[float], bbox2: List[float],overlap_length: 
         "bbox2_rescale": bbox2_rescale-0.01
     }
 
-
-def save_json(json_path: str, data: dict) -> None:
-    """
-    保存json文件
-    """
-    with open(json_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
     # Initialize and run the server
