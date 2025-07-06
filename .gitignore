@@ -67,3 +67,7 @@ model_weights/
 local/ 
 output/
 temp/
+room_images/
+*.json
+tmp/
+*.glb
