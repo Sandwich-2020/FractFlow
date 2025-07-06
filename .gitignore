@@ -71,3 +71,4 @@ room_images/
 *.json
 tmp/
 *.glb
+*.png

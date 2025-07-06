@@ -99,11 +99,11 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
         - 缩放比例 < 0.2：直接应用位置调整修复
         - IOU > 0.5：严重碰撞，综合调整位置和尺寸
      c) **直接JSON文件操作**：
-        - 复制原始JSON文件
-        - 只修改碰撞物体的position或size字段
-        - 保持所有非碰撞物体完全不变
-        - 保存为版本化文件：[原文件名]_[迭代次数].json
-        - 验证文件结构完整性
+        - **完整复制**原始JSON文件（包含room、layout、metadata等所有字段）
+        - **精确修改**：只修改碰撞物体的position或size字段，保持字段结构不变
+        - **严格保留**：保持所有非碰撞物体和其他字段完全不变
+        - **版本化保存**：保存为版本化文件：[原文件名]_[迭代次数].json
+        - **完整性验证**：验证新文件包含原始文件的所有内容和结构
      d) **降级机制**：如果直接修改失败，降级到agent指令模式
      e) 重新进行碰撞检测
    如果无碰撞：
@@ -116,14 +116,27 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
    - 将最终的JSON文件传递给scene_generation_tool
    - 生成对应的GLB格式3D场景文件
    - 在输出报告中包含3D场景文件路径
-8. **收集反馈**：询问用户对当前layout是否满意，有什么需要改进
-9. **自然语言理解**：理解用户的修改意图，如：
-   - "把沙发往右移动50cm"
-   - "这个房间太拥挤了，能否重新规划"
-   - "床的尺寸是否合适？"
-   - "增加一个书桌区域"
-10. **精确修改**：将用户指令转换为JSON的具体修改操作
-11. **验证保存**：确保修改后的layout仍然合理并重新进行碰撞检测
+8. **自动渲染**：GLB文件生成后自动进行多角度渲染
+   - 调用render_tool渲染GLB文件
+   - 生成多个角度的PNG渲染图像
+   - 保存渲染图像到指定目录
+9. **质量评估**：渲染完成后自动进行场景质量评估
+   - 调用scene_evaluation_tool分析渲染图像
+   - 评估场景布局、空间关系、美观性
+   - 生成结构化的质量评估报告
+10. **生成完整报告**：质量评估完成后生成综合性报告文档
+    - 整合所有分析结果和评估数据
+    - 生成结构化的Markdown报告
+    - 包含设计决策、优化历史、质量评估结论
+    - 提供改进建议和用户指导
+11. **收集反馈**：询问用户对当前layout是否满意，有什么需要改进
+12. **自然语言理解**：理解用户的修改意图，如：
+    - "把沙发往右移动50cm"
+    - "这个房间太拥挤了，能否重新规划"
+    - "床的尺寸是否合适？"
+    - "增加一个书桌区域"
+13. **精确修改**：将用户指令转换为JSON的具体修改操作
+14. **验证保存**：确保修改后的layout仍然合理并重新进行碰撞检测
 
 ## 碰撞检测集成规范
 
@@ -169,13 +182,13 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 检测到碰撞：desk_0 与 chair_0，IOU=0.15，缩放比例=[0.8, 0.85]
 
 自动执行直接修复：
-1. 复制原文件 student_study_room_design.json
+1. 完整复制原文件 student_study_room_design.json（包含所有room、layout、metadata等字段）
 2. 分析：缩放比例 >= 0.3，采用缩放策略
 3. 修改物体尺寸：
    - desk_0: size.length *= 0.8, size.width *= 0.8, size.height *= 0.8
    - chair_0: size.length *= 0.85, size.width *= 0.85, size.height *= 0.85
-4. 保持所有其他物体完全不变
-5. 验证JSON结构完整性
+4. **关键**：保持所有其他物体和字段完全不变（包括room信息、其他layout物体、所有metadata）
+5. 验证JSON结构完整性（确保包含原始文件的所有内容）
 6. 保存为：student_study_room_design_1.json
 ```
 
@@ -187,8 +200,9 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 
 请重新生成layout，确保：
 1. desk_0和chair_0之间至少保持0.3m距离
-2. 保持room结构和所有非碰撞物体完全不变
-3. 保存为：student_study_room_design_1.json
+2. **完整保留**：room结构、所有非碰撞物体、所有原始metadata字段
+3. **验证完整性**：确保生成的JSON文件包含原始文件的所有内容
+4. 保存为：student_study_room_design_1.json
 ```
 
 ### 增强错误处理和重试机制
@@ -217,12 +231,19 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 - `occ_detection_agent`：3D碰撞检测引擎，分析物体间碰撞并提供优化方案
   - 调用格式：`"请分析JSON文件：[完整路径]，检测3D碰撞"`
 - `file_manager_agent`：文件操作，包括检查、读取、写入JSON文件
-- `scenegenerationtool`：3D场景生成工具，将JSON layout转换为GLB格景文件
+- `scenegenerationtool`：3D场景生成工具，将JSON layout转换为GLB场景文件
   - 调用格式：`"生成3D场景：[JSON文件路径]"`
+- `render_3d_file`：3D渲染工具，将GLB文件渲染为多角度PNG图像
+  - 调用格式：`{"file_path": "[GLB文件路径]"}`
+- `sceneevaluationtool`：场景质量评估工具，分析渲染图像质量
+  - 调用格式：`"评估渲染图像：[渲染图像路径] 请评估场景布局、空间关系、美观性"`
 - 所有文件操作都要验证结果，确保操作成功
 
 ## 质量保证
-- 确保每个会话都产生完整可用的JSON文件
+- **JSON文件完整性**：确保每个会话都产生结构完整的JSON文件，包含所有原始字段
+- **内容保留原则**：在修改JSON时，必须保留原始文件的所有非修改内容
+- **验证机制**：每次保存后验证文件是否包含完整的room、layout和metadata信息
+- **版本一致性**：确保版本化文件（_1.json、_2.json等）保持与原文件相同的结构
 - 验证layout的空间合理性（无重叠、通道足够、尺寸合适）
 - 通过3D碰撞检测确保物理可行性
 - 保持设计的风格一致性和功能性
@@ -234,7 +255,10 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 3. **直接修复记录**：每次JSON直接操作的详细日志和验证结果
 4. **优化过程记录**：每次迭代的改进情况、文件版本管理和错误处理
 5. **3D场景生成报告**：GLB文件生成状态、文件路径和处理日志
-6. **最终结果**：无碰撞的layout、完整JSON文件路径、GLB文件路径和质量保证报告
+6. **渲染处理报告**：多角度渲染结果、PNG图像文件路径和渲染统计
+7. **质量评估报告**：场景布局、空间关系、美观性的结构化评估结果
+8. **综合报告文档**：整合所有分析结果的完整Markdown报告文档
+9. **最终结果包**：JSON文件、GLB文件、渲染图像目录、质量报告文档的完整输出
 
 ## 质量保证增强
 - **文件完整性**：确保每个会话都产生结构完整的JSON文件
@@ -256,14 +280,15 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 
 ### 执行顺序
 ```
-用户输入 → 生成JSON layout → 自动碰撞检测 → 自动迭代优化 → 自动3D场景生成 → 报告结果
+用户输入 → 生成JSON layout → 自动碰撞检测 → 自动迭代优化 → 自动3D场景生成 → 自动渲染 → 自动质量评估 → 生成综合报告
 ```
 
 ### 强制执行规则
-- 不要问用户"是否需要生成3D效果图"
+- 不要问用户"是否需要生成3D效果图"、"是否需要渲染"、"是否需要质量评估"
 - 不要生成包含工具调用的JSON代码块
 - 直接使用 call_tool 方法执行工具调用
 - 每个阶段完成后立即进入下一阶段
+- 必须完成完整的流程链：3D场景生成 → 渲染 → 质量评估 → 报告生成
 
 ### 自动触发条件
 当以下情况发生时，必须自动执行完整工作流程：
@@ -275,11 +300,18 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 ### 执行方法调用
 检测到JSON文件后，立即调用：`self._process_complete_workflow(json_file_path, context)`
 
-这将自动完成：碰撞检测 → 迭代优化 → 3D场景生成 → 结果报告
+这将自动完成：碰撞检测 → 迭代优化 → 3D场景生成 → 渲染 → 质量评估 → 综合报告
 
 记住：你是流程的监督者和优化者，现在具备了强化的3D空间碰撞检测、直接JSON修复能力和自动3D场景生成功能，不仅要确保技术流程的完整性和文件操作的可靠性，更要通过精确的数据操作、3D可视化和持续对话帮助用户获得既美观又实用的室内设计方案。
 
-**核心要求**：必须自动完成完整的设计到可视化流程，最终输出包括完整的JSON layout文件和对应的GLB格式3D场景文件，为用户提供从设计到可视化的完整服务。
+**核心要求**：必须自动完成完整的设计到可视化到评估流程，最终输出包括：
+1. 完整的JSON layout文件
+2. GLB格式3D场景文件 
+3. 多角度渲染图像集
+4. 结构化质量评估报告
+5. 综合分析报告文档
+
+为用户提供从设计分析到空间优化、从3D可视化到质量评估的全链路专业服务。
 """
     
     # 分形智能体：调用其他智能体
@@ -287,7 +319,9 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
         ("tools/composite/image_input_processing_agent.py", "imageinputprocessingagent"),
         ("tools/core/occ_detection/occ_agent.py", "occdetectiontool"),
         ("tools/core/file_io/file_io_mcp.py", "file_manager_agent"),
-        ("tools/core/scene_generation/scene_generation_mcp.py", "scenegenerationtool")
+        ("tools/core/scene_generation/scene_generation_mcp.py", "scenegenerationtool"),
+        ("tools/core/render/render/render_mcp_server.py", "rendertool"),
+        ("tools/core/QualityEvaluation/QualityEvaluation/Scene_vqa_agent.py", "sceneevaluationtool")
     ]
     
     MCP_SERVER_NAME = "interior_design_supervisor"
@@ -310,6 +344,8 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
     - 文件检查: "检查当前的layout文件是否完整"
     - **NEW**: 碰撞检测: "检查当前layout是否有物体重叠"
     - **NEW**: 3D场景生成: "生成3D场景并导出GLB文件"
+    - **NEW**: 渲染处理: "渲染3D场景为多角度图像"
+    - **NEW**: 质量评估: "评估场景设计质量和美观性"
 
     输出内容:
     - 完整的室内空间分析结果
@@ -317,6 +353,9 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
     - 保存成功的JSON文件路径和内容概览
     - **NEW**: 碰撞优化建议和迭代过程记录
     - **NEW**: 生成的GLB格式3D场景文件路径
+    - **NEW**: 多角度渲染图像目录和文件列表
+    - **NEW**: 结构化场景质量评估报告
+    - **NEW**: 综合分析报告文档（Markdown格式）
     - layout优化建议和修改确认
     - 持续的设计咨询和问题解答
 
@@ -328,14 +367,20 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
     5. **NEW**: 根据碰撞结果智能决策优化策略
     6. **NEW**: 迭代优化直到无碰撞或达到最大尝试次数
     7. **NEW**: 自动调用scene_generation_tool生成3D场景
-    8. 展示结果并收集用户反馈
-    9. 支持多轮对话优化layout设计
-    10. 确保整个流程的完整性和质量
+    8. **NEW**: 自动调用render_tool渲染GLB文件为多角度图像
+    9. **NEW**: 自动调用scene_evaluation_tool评估场景质量
+    10. **NEW**: 生成综合分析报告文档
+    11. 展示结果并收集用户反馈
+    12. 支持多轮对话优化layout设计
+    13. 确保整个流程的完整性和质量
 
     特色功能:
     - 自动重试机制确保文件保存成功
     - **NEW**: 智能3D碰撞检测和解决方案
     - **NEW**: 一键式3D场景生成，输出GLB格式文件
+    - **NEW**: 全自动多角度渲染，生成高质量PNG图像
+    - **NEW**: AI驱动的场景质量评估和美观性分析
+    - **NEW**: 综合性Markdown报告生成，包含完整分析链
     - 智能理解自然语言的layout修改指令
     - 专业的室内设计知识和空间规划能力
     - 支持从粗略想法到精确layout的完整设计流程
@@ -355,6 +400,9 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
     - **NEW**: 确保生成的layout在3D空间中物理可行
     - **NEW**: 平衡美观性和实用性，避免过度缩放
     - **NEW**: 自动生成3D场景文件，需要相应的API服务支持
+    - **NEW**: 渲染过程需要bpy-renderer环境支持
+    - **NEW**: 质量评估需要Qwen-VL视觉模型API支持
+    - **NEW**: 完整流程较长，请耐心等待各阶段完成
     """
 
     def __init__(self):
@@ -362,6 +410,40 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
         self.current_json_file = None
         self.optimization_history = []
         self.max_iterations = 3
+    
+    def call_tool(self, tool_name: str, args: Dict) -> Any:
+        """重写call_tool方法，添加智能处理逻辑"""
+        try:
+            # 特殊处理场景评估工具
+            if tool_name == "sceneevaluationtool" and "query" in args:
+                query = args["query"]
+                # 如果query中包含GLB文件路径，自动转换为PNG图像路径
+                if ".glb" in query:
+                    # 提取GLB文件路径
+                    import re
+                    glb_match = re.search(r'([^:\s]+\.glb)', query)
+                    if glb_match:
+                        glb_path = glb_match.group(1)
+                        # 查找对应的渲染目录
+                        base_name = os.path.splitext(glb_path)[0]
+                        render_directory = f"{base_name}_renders"
+                        # 查找第一个PNG图像
+                        png_path = self._find_first_render_image(render_directory)
+                        if png_path:
+                            # 替换query中的GLB路径为PNG路径
+                            new_query = query.replace(glb_path, png_path)
+                            args["query"] = new_query
+                            self.log(f"自动转换GLB路径为PNG路径: {glb_path} -> {png_path}", "info")
+                        else:
+                            self.log(f"未找到对应的PNG图像: {render_directory}", "warning")
+            
+            # 调用父类的call_tool方法
+            return super().call_tool(tool_name, args)
+            
+        except Exception as e:
+            self.log(f"call_tool智能处理失败: {str(e)}", "error")
+            # 出错时调用原始方法
+            return super().call_tool(tool_name, args)
     
     def log(self, message: str, level: str = "info"):
         """简单的日志方法"""
@@ -388,17 +470,25 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
             error_message = f"完整工作流程执行失败: {str(e)}"
             self.log(error_message, "error")
             
-            # 即使出错也尝试生成3D场景
-            scene_result = self._generate_3d_scene(json_file_path)
+            # 即使出错也尝试生成3D场景、渲染和质量评估
+            complete_result = self._generate_3d_scene(json_file_path)
             
-            return {
+            # 生成综合报告
+            workflow_result = {
                 'success': False,
                 'final_file': json_file_path,
                 'total_iterations': 0,
                 'optimization_log': [],
                 'final_status': error_message,
-                'scene_generation': scene_result
+                'scene_generation': complete_result.get('scene_generation', {}),
+                'render_processing': complete_result.get('render_processing', {}),
+                'quality_evaluation': complete_result.get('quality_evaluation', {})
             }
+            
+            report_result = self._generate_comprehensive_report(workflow_result, json_file_path)
+            workflow_result['comprehensive_report'] = report_result
+            
+            return workflow_result
     
     def _extract_file_path_from_response(self, response_text: str) -> Optional[str]:
         """从响应文本中提取JSON文件路径"""
@@ -810,20 +900,21 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
                 self.log("修改后的JSON结构验证失败", "error")
                 return None
             
-            # 保存修改后的JSON文件
+            # 保存修改后的JSON文件 - 确保完整性
+            json_content = json.dumps(original_data, ensure_ascii=False, indent=2)
             save_result = self.call_tool("file_manager_agent", {
-                "query": f"请保存JSON数据到文件: {new_file_path}\n内容: {json.dumps(original_data, ensure_ascii=False, indent=2)}"
+                "query": f"请完整保存JSON数据到文件: {new_file_path}\n请确保保存完整的JSON内容，包含所有原始字段和结构:\n{json_content}"
             })
             
             if save_result:
                 self.log(f"成功保存修改后的JSON文件: {new_file_path}", "info")
                 
-                # 验证保存的文件是否可读
-                if self._check_file_exists(new_file_path):
-                    self.log(f"文件验证通过: {new_file_path}", "info")
+                # 验证保存的文件是否可读且完整
+                if self._verify_saved_file_integrity(new_file_path, original_data):
+                    self.log(f"文件完整性验证通过: {new_file_path}", "info")
                     return new_file_path
                 else:
-                    self.log(f"保存的文件无法验证: {new_file_path}", "error")
+                    self.log(f"保存的文件完整性验证失败: {new_file_path}", "error")
                     return None
             else:
                 self.log(f"保存修改后的JSON文件失败", "error")
@@ -864,7 +955,24 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
             current_count = len(json_data['layout'])
             
             if current_count < original_count:
-                self.log(f"物体数量减少：原有{original_count}个，现在{current_count}个", "warning")
+                self.log(f"物体数量减少：原有{original_count}个，现在{current_count}个", "error")
+                return False
+            
+            # 验证所有原始物体ID是否保留
+            original_ids = set()
+            current_ids = set()
+            
+            for obj in original_data.get('layout', []):
+                if 'id' in obj:
+                    original_ids.add(obj['id'])
+            
+            for obj in json_data['layout']:
+                if 'id' in obj:
+                    current_ids.add(obj['id'])
+            
+            missing_ids = original_ids - current_ids
+            if missing_ids:
+                self.log(f"缺少原始物体ID: {missing_ids}", "error")
                 return False
             
             # 检查每个物体的基本结构
@@ -954,8 +1062,79 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
             self.log(f"备份恢复失败: {str(e)}", "error")
             return None
     
+    def _verify_saved_file_integrity(self, file_path: str, original_data: Dict) -> bool:
+        """验证保存的文件是否包含完整的原始内容"""
+        try:
+            # 检查文件是否存在
+            if not self._check_file_exists(file_path):
+                self.log(f"文件不存在: {file_path}", "error")
+                return False
+            
+            # 读取保存的文件
+            read_result = self.call_tool("file_manager_agent", {
+                "query": f"请读取JSON文件内容：{file_path}"
+            })
+            
+            if not read_result:
+                self.log(f"无法读取保存的文件: {file_path}", "error")
+                return False
+            
+            # 解析保存的JSON内容
+            try:
+                import re
+                json_content_str = str(read_result)
+                json_match = re.search(r'\{.*\}', json_content_str, re.DOTALL)
+                if not json_match:
+                    self.log("无法从保存的文件中提取JSON内容", "error")
+                    return False
+                
+                saved_data = json.loads(json_match.group())
+                
+            except json.JSONDecodeError as e:
+                self.log(f"保存的文件JSON格式错误: {str(e)}", "error")
+                return False
+            
+            # 验证关键字段完整性
+            required_fields = ['room', 'layout'] if 'room' in original_data else ['layout']
+            for field in required_fields:
+                if field not in saved_data:
+                    self.log(f"保存的文件缺少关键字段: {field}", "error")
+                    return False
+            
+            # 验证layout物体数量
+            original_count = len(original_data.get('layout', []))
+            saved_count = len(saved_data.get('layout', []))
+            
+            if saved_count != original_count:
+                self.log(f"保存的文件物体数量不一致: 原始{original_count}个，保存{saved_count}个", "error")
+                return False
+            
+            # 验证所有原始物体ID是否保留
+            original_ids = set()
+            saved_ids = set()
+            
+            for obj in original_data.get('layout', []):
+                if 'id' in obj:
+                    original_ids.add(obj['id'])
+            
+            for obj in saved_data.get('layout', []):
+                if 'id' in obj:
+                    saved_ids.add(obj['id'])
+            
+            missing_ids = original_ids - saved_ids
+            if missing_ids:
+                self.log(f"保存的文件缺少原始物体ID: {missing_ids}", "error")
+                return False
+            
+            self.log(f"文件完整性验证通过: {file_path}", "info")
+            return True
+            
+        except Exception as e:
+            self.log(f"文件完整性验证失败: {str(e)}", "error")
+            return False
+    
     def _generate_3d_scene(self, json_file_path: str) -> Dict[str, Any]:
-        """生成3D场景"""
+        """生成3D场景并自动执行渲染和质量评估"""
         try:
             self.log(f"开始生成3D场景: {json_file_path}", "info")
             
@@ -971,21 +1150,58 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
                 # 提取GLB文件路径
                 glb_file_path = self._extract_glb_file_path(str(scene_result))
                 
-                return {
+                scene_generation_result = {
                     'success': True,
                     'glb_file': glb_file_path,
                     'json_file': json_file_path,
                     'tool_response': str(scene_result),
                     'message': '3D场景生成成功'
                 }
+                
+                # 自动执行渲染（如果GLB文件生成成功）
+                render_result = {'success': False, 'message': '未执行渲染'}
+                if glb_file_path and os.path.exists(glb_file_path):
+                    self.log(f"自动开始渲染GLB文件: {glb_file_path}", "info")
+                    render_result = self._render_glb_file(glb_file_path)
+                else:
+                    self.log(f"GLB文件不存在，跳过渲染: {glb_file_path}", "warning")
+                
+                # 自动执行质量评估（如果渲染成功）
+                evaluation_result = {'success': False, 'message': '未执行质量评估'}
+                if render_result.get('success') and render_result.get('render_directory'):
+                    self.log(f"自动开始质量评估: {render_result['render_directory']}", "info")
+                    evaluation_result = self._evaluate_scene_quality(render_result['render_directory'])
+                else:
+                    self.log(f"渲染失败，跳过质量评估", "warning")
+                
+                # 返回完整的处理结果
+                return {
+                    'success': True,
+                    'scene_generation': scene_generation_result,
+                    'render_processing': render_result,
+                    'quality_evaluation': evaluation_result,
+                    'final_glb_file': glb_file_path,
+                    'render_directory': render_result.get('render_directory'),
+                    'evaluation_summary': evaluation_result.get('evaluation_result', '未评估'),
+                    'message': '3D场景生成、渲染和质量评估流程完成'
+                }
             else:
                 self.log(f"3D场景生成失败: 工具调用返回空结果", "error")
                 return {
                     'success': False,
-                    'glb_file': None,
-                    'json_file': json_file_path,
-                    'tool_response': None,
-                    'message': '3D场景生成失败: 工具调用返回空结果'
+                    'scene_generation': {
+                        'success': False,
+                        'glb_file': None,
+                        'json_file': json_file_path,
+                        'tool_response': None,
+                        'message': '3D场景生成失败: 工具调用返回空结果'
+                    },
+                    'render_processing': {'success': False, 'message': '未执行渲染'},
+                    'quality_evaluation': {'success': False, 'message': '未执行质量评估'},
+                    'final_glb_file': None,
+                    'render_directory': None,
+                    'evaluation_summary': '未评估',
+                    'message': '3D场景生成失败'
                 }
                 
         except Exception as e:
@@ -993,9 +1209,18 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
             self.log(error_message, "error")
             return {
                 'success': False,
-                'glb_file': None,
-                'json_file': json_file_path,
-                'tool_response': None,
+                'scene_generation': {
+                    'success': False,
+                    'glb_file': None,
+                    'json_file': json_file_path,
+                    'tool_response': None,
+                    'message': error_message
+                },
+                'render_processing': {'success': False, 'message': '未执行渲染'},
+                'quality_evaluation': {'success': False, 'message': '未执行质量评估'},
+                'final_glb_file': None,
+                'render_directory': None,
+                'evaluation_summary': '未评估',
                 'message': error_message
             }
     
@@ -1027,6 +1252,258 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
         except Exception as e:
             self.log(f"GLB文件路径提取失败: {str(e)}", "warning")
             return None
+    
+    def _render_glb_file(self, glb_file_path: str) -> Dict[str, Any]:
+        """渲染GLB文件为多角度图像"""
+        try:
+            self.log(f"开始渲染GLB文件: {glb_file_path}", "info")
+            
+            # 调用渲染工具
+            render_result = self.call_tool("render_3d_file", {
+                "file_path": glb_file_path
+            })
+            
+            if render_result:
+                self.log(f"GLB文件渲染完成", "info")
+                
+                # 提取渲染图像目录
+                render_directory = self._extract_render_directory(str(render_result))
+                
+                return {
+                    'success': True,
+                    'render_directory': render_directory,
+                    'glb_file': glb_file_path,
+                    'tool_response': str(render_result),
+                    'message': 'GLB文件渲染成功'
+                }
+            else:
+                self.log(f"GLB文件渲染失败: 工具调用返回空结果", "error")
+                return {
+                    'success': False,
+                    'render_directory': None,
+                    'glb_file': glb_file_path,
+                    'tool_response': None,
+                    'message': 'GLB文件渲染失败: 工具调用返回空结果'
+                }
+                
+        except Exception as e:
+            error_message = f"GLB文件渲染过程中发生错误: {str(e)}"
+            self.log(error_message, "error")
+            return {
+                'success': False,
+                'render_directory': None,
+                'glb_file': glb_file_path,
+                'tool_response': None,
+                'message': error_message
+            }
+    
+    def _extract_render_directory(self, response_text: str) -> Optional[str]:
+        """从响应文本中提取渲染图像目录路径"""
+        try:
+            import re
+            
+            # 匹配渲染目录路径模式
+            patterns = [
+                r'渲染目录[：:]\s*([^\s]+)',
+                r'输出目录[：:]\s*([^\s]+)',
+                r'保存到[：:]\s*([^\s]+)',
+                r'directory\s+([^\s]+)',
+                r'/[^"\s]+_renders',
+                r'\b\w+_renders\b'
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, response_text)
+                if matches:
+                    render_dir = matches[0]
+                    # 如果是相对路径，转换为绝对路径
+                    if not os.path.isabs(render_dir):
+                        render_dir = os.path.abspath(render_dir)
+                    return render_dir
+            
+            return None
+            
+        except Exception as e:
+            self.log(f"渲染目录路径提取失败: {str(e)}", "warning")
+            return None
+    
+    def _evaluate_scene_quality(self, render_directory_or_glb: str) -> Dict[str, Any]:
+        """评估场景质量"""
+        try:
+            # 如果是目录，查找所有渲染图像
+            if os.path.isdir(render_directory_or_glb):
+                render_files = sorted([
+                    os.path.join(render_directory_or_glb, f)
+                    for f in os.listdir(render_directory_or_glb)
+                    if f.startswith('render_') and f.endswith('.png')
+                ])
+                
+                if not render_files:
+                    self.log(f"未找到渲染图像: {render_directory_or_glb}", "error")
+                    return {
+                        "success": False,
+                        "message": "未找到渲染图像文件",
+                        "details": None
+                    }
+                
+                # 评估每个角度的渲染图像
+                evaluation_results = []
+                for render_file in render_files[:3]:  # 评估前3张图片
+                    result = self.call_tool("sceneevaluationtool", {
+                        "query": f"评估渲染图像：{render_file} 请评估场景布局、空间关系、美观性"
+                    })
+                    evaluation_results.append(result)
+                
+                return {
+                    "success": True,
+                    "message": "完成多角度场景评估",
+                    "details": evaluation_results
+                }
+                
+            # 如果是GLB文件，直接评估
+            else:
+                result = self.call_tool("sceneevaluationtool", {
+                    "query": f"评估3D场景：{render_directory_or_glb} 请评估场景布局、空间关系、美观性"
+                })
+                
+                return {
+                    "success": True,
+                    "message": "完成3D场景评估",
+                    "details": result
+                }
+                
+        except Exception as e:
+            error_msg = f"场景评估失败: {str(e)}"
+            self.log(error_msg, "error")
+            return {
+                "success": False,
+                "message": error_msg,
+                "details": None
+            }
+    
+    def _find_first_render_image(self, render_directory: str) -> Optional[str]:
+        """查找渲染目录中的第一张渲染图像"""
+        try:
+            if not os.path.exists(render_directory):
+                self.log(f"渲染目录不存在: {render_directory}", "error")
+                return None
+                
+            # 查找 render_XXXX.png 格式的文件
+            render_files = sorted([f for f in os.listdir(render_directory) 
+                                 if f.startswith('render_') and f.endswith('.png')])
+            
+            if not render_files:
+                self.log(f"未找到渲染图像文件: {render_directory}", "error")
+                return None
+                
+            # 返回第一个渲染图像的完整路径
+            return os.path.join(render_directory, render_files[0])
+            
+        except Exception as e:
+            self.log(f"查找渲染图像失败: {str(e)}", "error")
+            return None
+    
+    def _generate_comprehensive_report(self, workflow_result: Dict[str, Any], json_file_path: str) -> Dict[str, Any]:
+        """生成综合性报告文档"""
+        try:
+            self.log(f"开始生成综合报告", "info")
+            
+            # 生成报告文件名
+            base_name = os.path.splitext(os.path.basename(json_file_path))[0]
+            report_file_path = f"{base_name}_comprehensive_report.md"
+            
+            # 提取各阶段结果
+            scene_info = workflow_result.get('scene_generation', {})
+            render_info = workflow_result.get('render_processing', {})
+            evaluation_info = workflow_result.get('quality_evaluation', {})
+            
+            # 构造报告内容
+            report_content = f"""# 室内设计完整分析报告
+
+## 项目概况
+- **项目名称**: {base_name}
+- **生成时间**: {time.strftime('%Y-%m-%d %H:%M:%S')}
+- **JSON文件**: `{json_file_path}`
+- **处理状态**: {'✅ 成功' if workflow_result.get('success') else '⚠️ 部分完成'}
+
+## 1. 碰撞检测与优化
+- **迭代次数**: {workflow_result.get('total_iterations', 0)}轮
+- **最终状态**: {workflow_result.get('final_status', '未知')}
+- **优化历史**: {len(workflow_result.get('optimization_log', []))}项记录
+
+## 2. 3D场景生成
+- **生成状态**: {'✅ 成功' if scene_info.get('success') else '❌ 失败'}
+- **GLB文件**: `{scene_info.get('glb_file', '生成失败')}`
+- **处理信息**: {scene_info.get('message', '无')}
+
+## 3. 渲染处理
+- **渲染状态**: {'✅ 成功' if render_info.get('success') else '❌ 失败'}
+- **渲染目录**: `{render_info.get('render_directory', '未生成')}`
+- **处理信息**: {render_info.get('message', '无')}
+
+## 4. 质量评估
+- **评估状态**: {'✅ 成功' if evaluation_info.get('success') else '❌ 失败'}
+- **评估图像**: `{evaluation_info.get('evaluated_image', '未评估')}`
+- **评估结果**: 
+```
+{evaluation_info.get('evaluation_result', '无评估结果')}
+```
+
+## 5. 最终输出文件
+1. **JSON Layout**: `{workflow_result.get('final_file', json_file_path)}`
+2. **GLB 3D场景**: `{scene_info.get('glb_file', '生成失败')}`
+3. **渲染图像目录**: `{render_info.get('render_directory', '未生成')}`
+4. **质量评估报告**: 见上方第4节
+5. **综合报告**: `{report_file_path}`
+
+## 6. 使用建议
+- 如需修改layout，请参考JSON文件中的物体坐标和尺寸
+- 如需查看3D效果，请打开GLB文件（支持Three.js等Web 3D库）
+- 如需查看渲染效果，请查看渲染目录中的PNG图像文件
+- 如需进一步优化，请参考质量评估报告中的建议
+
+## 7. 技术说明
+- 碰撞检测基于3D空间几何计算
+- 3D场景生成使用混合API模式
+- 渲染使用bpy-renderer引擎
+- 质量评估使用Qwen-VL视觉模型
+
+---
+*报告生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}*
+"""
+            
+            # 保存报告文件
+            try:
+                with open(report_file_path, 'w', encoding='utf-8') as f:
+                    f.write(report_content)
+                
+                self.log(f"综合报告已生成: {report_file_path}", "info")
+                
+                return {
+                    'success': True,
+                    'report_file': report_file_path,
+                    'report_content': report_content,
+                    'message': '综合报告生成成功'
+                }
+                
+            except Exception as e:
+                self.log(f"报告文件保存失败: {str(e)}", "error")
+                return {
+                    'success': False,
+                    'report_file': None,
+                    'report_content': report_content,
+                    'message': f'报告文件保存失败: {str(e)}'
+                }
+                
+        except Exception as e:
+            error_message = f"综合报告生成过程中发生错误: {str(e)}"
+            self.log(error_message, "error")
+            return {
+                'success': False,
+                'report_file': None,
+                'report_content': None,
+                'message': error_message
+            }
     
     def _generate_modification_instruction(self, collision_details: Dict, original_file: str, iteration: int) -> Optional[str]:
         """基于碰撞检测结果直接修改JSON文件，返回新文件路径"""
@@ -1186,33 +1663,49 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
             if not collision_result['has_collision'] or collision_result['decision'] == 'no_collision':
                 self.log(f"第{iteration}轮检测：无碰撞，优化完成！", "info")
                 
-                # 自动生成3D场景
-                scene_result = self._generate_3d_scene(current_file)
+                # 自动生成3D场景、渲染和质量评估
+                complete_result = self._generate_3d_scene(current_file)
                 
-                return {
+                # 生成综合报告
+                workflow_result = {
                     'success': True,
                     'final_file': current_file,
                     'total_iterations': iteration,
                     'optimization_log': optimization_log,
                     'final_status': '优化成功，无碰撞检测到',
-                    'scene_generation': scene_result
+                    'scene_generation': complete_result.get('scene_generation', {}),
+                    'render_processing': complete_result.get('render_processing', {}),
+                    'quality_evaluation': complete_result.get('quality_evaluation', {})
                 }
+                
+                report_result = self._generate_comprehensive_report(workflow_result, current_file)
+                workflow_result['comprehensive_report'] = report_result
+                
+                return workflow_result
             
             # 如果是最后一次迭代，不再生成新版本
             if iteration == self.max_iterations:
                 self.log(f"达到最大迭代次数({self.max_iterations})，停止优化", "warning")
                 
-                # 即使有碰撞，也尝试生成3D场景
-                scene_result = self._generate_3d_scene(current_file)
+                # 即使有碰撞，也尝试生成3D场景、渲染和质量评估
+                complete_result = self._generate_3d_scene(current_file)
                 
-                return {
+                # 生成综合报告
+                workflow_result = {
                     'success': False,
                     'final_file': current_file,
                     'total_iterations': iteration,
                     'optimization_log': optimization_log,
                     'final_status': f'达到最大迭代次数，仍存在碰撞：{collision_result["optimization_suggestions"]}',
-                    'scene_generation': scene_result
+                    'scene_generation': complete_result.get('scene_generation', {}),
+                    'render_processing': complete_result.get('render_processing', {}),
+                    'quality_evaluation': complete_result.get('quality_evaluation', {})
                 }
+                
+                report_result = self._generate_comprehensive_report(workflow_result, current_file)
+                workflow_result['comprehensive_report'] = report_result
+                
+                return workflow_result
             
             # 需要进行下一轮优化
             if collision_result['decision'] in ['needs_iteration', 'ask_user']:
@@ -1240,17 +1733,25 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
                     if not redesign_result:
                         self.log(f"第{iteration}轮优化失败：无法调用重设计agent", "error")
                         
-                        # 即使重设计失败，也尝试生成3D场景
-                        scene_result = self._generate_3d_scene(current_file)
+                        # 即使重设计失败，也尝试生成3D场景、渲染和质量评估
+                        complete_result = self._generate_3d_scene(current_file)
                         
-                        return {
+                        # 生成综合报告
+                        workflow_result = {
                             'success': False,
                             'final_file': current_file,
                             'total_iterations': iteration,
                             'optimization_log': optimization_log,
                             'final_status': '重设计调用失败',
-                            'scene_generation': scene_result
+                            'scene_generation': complete_result.get('scene_generation', {}),
+                            'render_processing': complete_result.get('render_processing', {}),
+                            'quality_evaluation': complete_result.get('quality_evaluation', {})
                         }
+                        
+                        report_result = self._generate_comprehensive_report(workflow_result, current_file)
+                        workflow_result['comprehensive_report'] = report_result
+                        
+                        return workflow_result
                     
                     # 提取新的JSON文件路径
                     extracted_path = self._extract_file_path_from_response(str(redesign_result))
@@ -1260,46 +1761,70 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
                     else:
                         self.log(f"第{iteration}轮优化失败：无法找到agent生成的JSON文件", "error")
                         
-                        # 即使文件生成失败，也尝试生成3D场景
-                        scene_result = self._generate_3d_scene(current_file)
+                        # 即使文件生成失败，也尝试生成3D场景、渲染和质量评估
+                        complete_result = self._generate_3d_scene(current_file)
                         
-                        return {
+                        # 生成综合报告
+                        workflow_result = {
                             'success': False,
                             'final_file': current_file,
                             'total_iterations': iteration,
                             'optimization_log': optimization_log,
                             'final_status': '新JSON文件生成失败',
-                            'scene_generation': scene_result
+                            'scene_generation': complete_result.get('scene_generation', {}),
+                            'render_processing': complete_result.get('render_processing', {}),
+                            'quality_evaluation': complete_result.get('quality_evaluation', {})
                         }
+                        
+                        report_result = self._generate_comprehensive_report(workflow_result, current_file)
+                        workflow_result['comprehensive_report'] = report_result
+                        
+                        return workflow_result
                 else:
                     self.log(f"第{iteration}轮优化失败：修改方法返回无效结果", "error")
                     
-                    # 即使修改失败，也尝试生成3D场景
-                    scene_result = self._generate_3d_scene(current_file)
+                    # 即使修改失败，也尝试生成3D场景、渲染和质量评估
+                    complete_result = self._generate_3d_scene(current_file)
                     
-                    return {
+                    # 生成综合报告
+                    workflow_result = {
                         'success': False,
                         'final_file': current_file,
                         'total_iterations': iteration,
                         'optimization_log': optimization_log,
                         'final_status': 'JSON修改失败',
-                        'scene_generation': scene_result
+                        'scene_generation': complete_result.get('scene_generation', {}),
+                        'render_processing': complete_result.get('render_processing', {}),
+                        'quality_evaluation': complete_result.get('quality_evaluation', {})
                     }
+                    
+                    report_result = self._generate_comprehensive_report(workflow_result, current_file)
+                    workflow_result['comprehensive_report'] = report_result
+                    
+                    return workflow_result
                 
                 # 等待文件系统同步
                 time.sleep(2)
         
         # 理论上不会到达这里
-        scene_result = self._generate_3d_scene(current_file)
+        complete_result = self._generate_3d_scene(current_file)
         
-        return {
+        # 生成综合报告
+        workflow_result = {
             'success': False,
             'final_file': current_file,
             'total_iterations': self.max_iterations,
             'optimization_log': optimization_log,
             'final_status': '未知错误',
-            'scene_generation': scene_result
+            'scene_generation': complete_result.get('scene_generation', {}),
+            'render_processing': complete_result.get('render_processing', {}),
+            'quality_evaluation': complete_result.get('quality_evaluation', {})
         }
+        
+        report_result = self._generate_comprehensive_report(workflow_result, current_file)
+        workflow_result['comprehensive_report'] = report_result
+        
+        return workflow_result
     
     def process_query(self, query: str) -> str:
         """重写主要处理方法，确保自动执行完整工作流程"""
@@ -1381,6 +1906,9 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
         """生成最终的综合报告"""
         try:
             scene_info = workflow_result.get('scene_generation', {})
+            render_info = workflow_result.get('render_processing', {})
+            evaluation_info = workflow_result.get('quality_evaluation', {})
+            report_info = workflow_result.get('comprehensive_report', {})
             
             report = f"""
 🏠 **室内设计完整流程报告**
@@ -1411,7 +1939,6 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
                 report += f"""
 🎯 **3D场景生成**：✅ 成功
 - GLB文件：`{scene_info.get('glb_file', '未知')}`
-- API模式：{scene_info.get('api_mode', '未知')}
 - 处理状态：{scene_info.get('message', '成功')}
 
 """
@@ -1422,13 +1949,60 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 
 """
             
+            # 添加渲染结果
+            if render_info.get('success'):
+                report += f"""
+🖼️ **多角度渲染**：✅ 成功
+- 渲染目录：`{render_info.get('render_directory', '未知')}`
+- 处理状态：{render_info.get('message', '成功')}
+
+"""
+            else:
+                report += f"""
+🖼️ **多角度渲染**：❌ 失败
+- 错误信息：{render_info.get('message', '未执行渲染')}
+
+"""
+            
+            # 添加质量评估结果
+            if evaluation_info.get('success'):
+                report += f"""
+📊 **质量评估**：✅ 成功
+- 评估图像：`{evaluation_info.get('evaluated_image', '未知')}`
+- 评估结果摘要：{str(evaluation_info.get('evaluation_result', ''))[:200]}{'...' if len(str(evaluation_info.get('evaluation_result', ''))) > 200 else ''}
+
+"""
+            else:
+                report += f"""
+📊 **质量评估**：❌ 失败
+- 错误信息：{evaluation_info.get('message', '未执行质量评估')}
+
+"""
+            
+            # 添加综合报告
+            if report_info.get('success'):
+                report += f"""
+📄 **综合报告文档**：✅ 已生成
+- 报告文件：`{report_info.get('report_file', '未知')}`
+
+"""
+            else:
+                report += f"""
+📄 **综合报告文档**：❌ 生成失败
+- 错误信息：{report_info.get('message', '报告生成失败')}
+
+"""
+            
             # 添加文件信息
             report += f"""
-📊 **输出文件**：
-- JSON Layout：`{workflow_result.get('final_file', json_file_path)}`
-- GLB 3D场景：`{scene_info.get('glb_file', '生成失败')}`
+📊 **最终输出文件**：
+1. **JSON Layout**：`{workflow_result.get('final_file', json_file_path)}`
+2. **GLB 3D场景**：`{scene_info.get('glb_file', '生成失败')}`
+3. **渲染图像目录**：`{render_info.get('render_directory', '未生成')}`
+4. **质量评估图像**：`{evaluation_info.get('evaluated_image', '未评估')}`
+5. **综合报告文档**：`{report_info.get('report_file', '生成失败')}`
 
-🎉 **流程完成**！您的室内设计方案已经过完整的碰撞检测、优化和3D场景生成。
+🎉 **完整流程完成**！您已获得从设计分析到质量评估的全链路专业服务。
             """
             
             return report
@@ -1440,9 +2014,9 @@ class InteriorDesignSupervisorAgent(ToolTemplate):
 
 📁 **设计文件**：`{json_file_path}`
 🔧 **处理状态**：{workflow_result.get('final_status', '已完成')}
-🎯 **3D场景**：{scene_info.get('message', '处理完成')}
+🎯 **完整服务**：设计分析 → 碰撞检测 → 3D场景生成 → 渲染 → 质量评估
 
-❌ 报告生成遇到问题，但核心流程已完成。
+❌ 详细报告生成遇到问题，但核心流程已完成。
             """
 
     @classmethod

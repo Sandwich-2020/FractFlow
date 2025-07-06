@@ -77,7 +77,7 @@ success: true/false
 """
     
     TOOLS = [
-        ("tools/core/QualityEvaluation/Scene_vqa_mcp.py", "scene_evaluation_vqa_operations")
+        ("tools/core/QualityEvaluation/QualityEvaluation/Scene_vqa_mcp.py", "scene_evaluation_vqa_operations")
     ]
     
     MCP_SERVER_NAME = "scene_evaluation_vqa_tool"

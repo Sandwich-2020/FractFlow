@@ -28,7 +28,7 @@ sys.path.append(project_root)
 
 from FractFlow.tool_template import ToolTemplate
 # 直接导入硬编码的渲染函数
-sys.path.append(os.path.join(project_root, 'tools/core/render'))
+sys.path.append(os.path.join(project_root, 'tools/core/render/render'))
 from render_mcp import render_mesh, detect_3d_files
 
 class FeedbackAgent(ToolTemplate):
