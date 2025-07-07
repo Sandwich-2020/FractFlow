@@ -329,9 +329,9 @@ class SceneGenerationTool(ToolTemplate):
         """根据属性应用变换"""
         # 缩放变换
         S = np.eye(4)
-        S[0, 0] = size["width"]
+        S[0, 0] = size["length"]
         S[1, 1] = size["height"]
-        S[2, 2] = size["length"]
+        S[2, 2] = size["width"]
 
         # 旋转变换
         yaw_rad = np.radians(rotation["yaw"])
